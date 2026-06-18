@@ -57,7 +57,7 @@ function terrainOf(id: string, c: TileContext): string {
 // Issue #2: ocean -> land requires a coast (no plain directly on ocean).
 expect("raise_land", ctx(["ocean"], { averageElevation: 1 }), false, "#2 raise_land on ocean tile");
 expect("form_coast", ctx(["ocean"], { averageElevation: 1 }), true, "#2 form_coast on ocean tile");
-expect("raise_land", ctx(["coast", "plain"], { averageElevation: 4 }), true, "#2 raise_land inland");
+expect("extend_plain", ctx(["coast", "plain"], { averageElevation: 4 }), true, "#2 extend plain inland from existing plain");
 
 // Issue #3: no river without a source.
 expect("carve_river", ctx(["plain"], { averageElevation: 4, averageTemperature: 7 }), false, "#3 river on bare plain");
@@ -99,6 +99,18 @@ expect("raise_land", ctx(["plain", "plain"], { targetTerrain: "plain", targetEle
 expect("form_spring", ctx(["plain", "plain"], { targetTerrain: "plain", averageElevation: 4, averageMoisture: 5 }), true, "dry: spring wells up on a moist plain");
 expect("form_spring", ctx(["plain"], { targetTerrain: "plain", averageElevation: 4, averageMoisture: 1 }), false, "dry: no spring on bone-dry land");
 expect("form_spring", ctx(["lake", "plain"], { targetTerrain: "plain", averageElevation: 4, averageMoisture: 6 }), false, "dry: no spring next to existing fresh water");
+
+// Lateral feature extension — any solid feature can grow sideways into empty.
+expect("extend_mountain", ctx(["mountain"], { averageElevation: 8 }), true, "extend: mountain extends a mountain");
+expect("extend_hill", ctx(["hill"], { averageElevation: 6 }), true, "extend: hill extends a hill");
+expect("extend_plain", ctx(["plain"], { averageElevation: 4 }), true, "extend: plain extends a plain");
+expect("extend_mountain", ctx(["mountain", "ocean"], { averageElevation: 5 }), false, "extend: not across open ocean (coast must separate)");
+expect("extend_plain", ctx(["ocean"], { averageElevation: 1 }), false, "extend: no plain without an adjacent plain");
+{
+  const c = ctx(["mountain"], { averageElevation: 8 });
+  console.log(`${terrainOf("extend_mountain", c) === "mountain" ? "ok" : "FAIL"}: extend: extension copies the feature`);
+  if (terrainOf("extend_mountain", c) !== "mountain") failures++;
+}
 
 // Reversibility (the new capability):
 // Coast can erode back to ocean.

@@ -39,7 +39,6 @@ export type ArchetypeResult = {
   flavor: string;
 };
 
-const LAND_TOUCH: TerrainKind[] = ["coast", "plain", "hill", "mountain", "volcano", "basalt"];
 const WATER_TOUCH: TerrainKind[] = ["ocean", "coast", "lake", "river", "wetland"];
 const RIVER_SOURCE: TerrainKind[] = ["hill", "mountain", "volcano", "river", "lake", "wetland", "ice"];
 const FREEZABLE_TOUCH: TerrainKind[] = ["ocean", "coast", "lake", "river", "wetland", "ice", "mountain"];
@@ -70,6 +69,8 @@ function elevationFor(kind: TerrainKind, base: number): number {
       return clamp(base + 1, 3, 6);
     case "hill":
       return clamp(base + 2, 5, 8);
+    case "mountain":
+      return clamp(Math.max(base, 6), 6, 10);
     case "volcano":
       return clamp(base + 4, 7, 10);
     case "lava":
@@ -85,41 +86,37 @@ function elevationFor(kind: TerrainKind, base: number): number {
 
 const pickFlavor = (rng: Rng, options: string[]): string => rng.pick(options);
 
-export const ARCHETYPES: CardArchetype[] = [
-  // 1. Raise Land — UPLIFT. Builds new inland ground on empty/coast, and lifts
-  //    existing land one step up the chain: plain -> hill -> mountain. Touches
-  //    land, NOT open ocean, so a plain never forms directly on the sea. This
-  //    is the inverse of Wear Down.
+const PRIMARY_ARCHETYPES: CardArchetype[] = [
+  // 1. Raise Land — UPLIFT of existing land, one step up the chain:
+  //    coast -> plain -> hill -> mountain. Lateral growth of new ground is
+  //    handled by the Extend archetypes; this card only adds height to land
+  //    that already exists. It is the inverse of Wear Down.
   {
     id: "raise_land",
     name: "Raise Land",
     age: "primordial",
-    targets: ["empty", "coast", "plain", "hill"],
+    targets: ["coast", "plain", "hill"],
     canGenerate(ctx) {
-      return targetOk(this, ctx) && ctx.touchesLand && !ctx.touchesOcean;
+      return targetOk(this, ctx) && !ctx.touchesOcean;
     },
     build: (ctx, _w, rng) => {
       let kind: TerrainKind;
       let value: number;
-      if (ctx.targetTerrain === "plain") {
+      if (ctx.targetTerrain === "coast") {
+        kind = "plain";
+        value = elevationFor("plain", Math.max(ctx.averageElevation, ctx.targetElevation + 1));
+      } else if (ctx.targetTerrain === "plain") {
         kind = "hill";
         value = clamp(ctx.targetElevation + 2, 5, 8);
-      } else if (ctx.targetTerrain === "hill") {
+      } else {
         kind = "mountain";
         value = clamp(ctx.targetElevation + 2, 7, 10);
-      } else {
-        // empty or coast: new ground, hill if the surrounding land is high.
-        kind = ctx.averageElevation >= 5 ? "hill" : "plain";
-        value = elevationFor(kind, ctx.averageElevation);
       }
       const title =
         kind === "mountain" ? "Raise Mountain" : kind === "hill" ? "Raise Hill" : "Raise Land";
       return {
         title,
-        requirements: [
-          { type: "targetTerrainIn", terrains: ["empty", "coast", "plain", "hill"] },
-          { type: "touchesAnyTerrain", terrains: LAND_TOUCH },
-        ],
+        requirements: [{ type: "targetTerrainIn", terrains: ["coast", "plain", "hill"] }],
         effects: [
           { type: "setTerrain", terrain: kind },
           { type: "setElevation", value },
@@ -564,6 +561,59 @@ export const ARCHETYPES: CardArchetype[] = [
     },
   },
 ];
+
+/**
+ * Lateral feature extension: an empty frontier tile becomes a copy of an
+ * adjacent solid feature, at matching height. This is how a feature grows
+ * sideways — plain→plain, hill→hill, mountain→mountain, basalt→basalt — as
+ * opposed to Raise Land, which steps land UP. (Coast/ocean/lava have their own
+ * dedicated spread cards.) Excluded next to open ocean so land still meets the
+ * sea through a coast, and next to lava so molten rock doesn't get paved over.
+ */
+function makeExtend(kind: TerrainKind, label: string): CardArchetype {
+  return {
+    id: `extend_${kind}`,
+    name: `Extend ${label}`,
+    age: "primordial",
+    targets: ["empty"],
+    canGenerate(ctx) {
+      return (
+        ctx.targetTerrain === "empty" &&
+        ctx.adjacentTerrains.includes(kind) &&
+        !ctx.touchesOcean &&
+        !ctx.touchesLava
+      );
+    },
+    build(ctx, _w, rng) {
+      const noun = label.toLowerCase();
+      return {
+        title: `Extend ${label}`,
+        requirements: [
+          { type: "targetTerrainIn", terrains: ["empty"] },
+          { type: "touchesTerrain", terrain: kind },
+        ],
+        effects: [
+          { type: "setTerrain", terrain: kind },
+          { type: "setElevation", value: elevationFor(kind, ctx.averageElevation) },
+        ],
+        flavor: pickFlavor(rng, [
+          `The ${noun} spreads into the next tile, of a piece with its neighbor.`,
+          `The ${noun} reaches a little further, unbroken.`,
+          `What stood here before extends across the edge.`,
+        ]),
+      };
+    },
+  };
+}
+
+const EXTEND_ARCHETYPES: CardArchetype[] = [
+  makeExtend("plain", "Plain"),
+  makeExtend("hill", "Hill"),
+  makeExtend("mountain", "Mountain"),
+  makeExtend("basalt", "Basalt"),
+];
+
+export const ARCHETYPES: CardArchetype[] = [...PRIMARY_ARCHETYPES, ...EXTEND_ARCHETYPES];
 
 export const ARCHETYPES_BY_ID: Record<string, CardArchetype> = Object.fromEntries(
   ARCHETYPES.map((a) => [a.id, a]),

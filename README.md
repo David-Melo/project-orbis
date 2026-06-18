@@ -21,10 +21,13 @@ for the full vision and roadmap.
 - **The core loop:** Start Day (or click any eligible tile) → assign a tile →
   analyze its neighborhood → generate up to 3 valid cards → preview → confirm →
   apply effects → record an event → persist.
-- **14 geological card archetypes:** raise land (uplift chain plain→hill→
-  mountain), form coast, extend coast, spread ocean, sink land, erupt volcano,
-  spread lava, cool lava, freeze, melt ice, carve river, form lake, form
-  spring, wear down.
+- **Card archetypes** split into two verbs plus context actions:
+  - **Extend (lateral):** a feature grows sideways into empty frontier — plain,
+    hill, mountain, basalt, coast, ocean (spread), lava (spread).
+  - **Raise / Wear Down (vertical):** uplift existing land coast→plain→hill→
+    mountain, or erode it back down.
+  - **Context actions:** form coast, spread ocean, sink land, erupt volcano,
+    cool lava, freeze, melt ice, carve river, form lake, form spring.
 - **Reversible world:** cards can transform existing edge tiles, not just empty
   frontier — shores erode (coast→ocean), heights wear down (mountain→hill),
   land subsides to marsh, water freezes/melts in place, and new lakes can be
