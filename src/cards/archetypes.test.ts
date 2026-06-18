@@ -121,7 +121,7 @@ describe("extend archetypes (lateral feature growth)", () => {
       expect(effects.some((e) => e.type === "adjustMoisture" || e.type === "spreadMoisture")).toBe(true);
     });
 
-    it(`${id} refuses without an adjacent ${kind}`, () => {
+    it(`${id} refuses with no source terrain adjacent`, () => {
       expect(canGen(id, makeContext(["ocean"]))).toBe(false);
     });
 
@@ -323,6 +323,28 @@ describe("hand composition (no weird or duplicate options)", () => {
     expect(a).not.toContain("form_spring");
     expect(a).toContain("extend_coast");
     expect(a).toContain("extend_plain");
+  });
+
+  it("REGRESSION: you can grow a plain inland from a shore (coast) or a hill, not only from a plain", () => {
+    expect(canGen("extend_plain", makeContext(["coast"], { averageElevation: 3 }))).toBe(true);
+    expect(resultTerrain("extend_plain", makeContext(["coast"], { averageElevation: 3 }))).toBe("plain");
+    expect(canGen("extend_plain", makeContext(["hill"], { averageElevation: 5 }))).toBe(true);
+    // but never a plain straight onto the open sea
+    expect(canGen("extend_plain", makeContext(["coast", "ocean"], { averageElevation: 2 }))).toBe(false);
+  });
+
+  it("INVARIANT: any empty tile touching walkable land (not open ocean) can grow more land", () => {
+    const landKinds: Array<Parameters<typeof makeContext>[0]> = [
+      ["plain"], ["coast"], ["hill"], ["mountain"], ["basalt"], ["wetland"],
+    ];
+    const landOutputs = new Set(["plain", "coast", "cliff", "hill", "mountain", "basalt"]);
+    for (const adj of landKinds) {
+      const ctx = makeContext(adj, { averageElevation: 4, averageMoisture: 4 });
+      const grows = ARCHETYPES.filter((a) => a.canGenerate(ctx, {} as WorldState)).some((a) =>
+        landOutputs.has(resultTerrain(a.id, ctx) ?? ""),
+      );
+      expect(grows, `no land-growth option beside ${adj.join("+")}`).toBe(true);
+    }
   });
 
   it("form_lake and form_spring are mutually exclusive (one needs a source, the other needs none)", () => {

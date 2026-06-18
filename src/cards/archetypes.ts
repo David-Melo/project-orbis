@@ -720,12 +720,16 @@ const PRIMARY_ARCHETYPES: CardArchetype[] = [
 /**
  * Lateral feature extension: an empty frontier tile becomes a copy of an
  * adjacent solid feature, at matching height. This is how a feature grows
- * sideways — plain→plain, hill→hill, mountain→mountain, basalt→basalt — as
+ * sideways — hill→hill, mountain→mountain, basalt→basalt, wetland→wetland — as
  * opposed to Raise Land, which steps land UP. (Coast/ocean/lava have their own
  * dedicated spread cards.) Excluded next to open ocean so land still meets the
  * sea through a coast, and next to lava so molten rock doesn't get paved over.
+ *
+ * `sources` are the adjacent terrains that can seed this extension; it defaults
+ * to the kind itself, but e.g. Extend Plain grows from any walkable land (a
+ * beach's hinterland, a hill's foot), so you can always push grassland inland.
  */
-function makeExtend(kind: TerrainKind, label: string): CardArchetype {
+function makeExtend(kind: TerrainKind, label: string, sources: TerrainKind[] = [kind]): CardArchetype {
   return {
     id: `extend_${kind}`,
     name: `Extend ${label}`,
@@ -734,7 +738,7 @@ function makeExtend(kind: TerrainKind, label: string): CardArchetype {
     canGenerate(ctx) {
       return (
         ctx.targetTerrain === "empty" &&
-        ctx.adjacentTerrains.includes(kind) &&
+        sources.some((s) => ctx.adjacentTerrains.includes(s)) &&
         !ctx.touchesOcean &&
         !ctx.touchesLava
       );
@@ -746,7 +750,7 @@ function makeExtend(kind: TerrainKind, label: string): CardArchetype {
         title: `Extend ${label}`,
         requirements: [
           { type: "targetTerrainIn", terrains: ["empty"] },
-          { type: "touchesTerrain", terrain: kind },
+          { type: "touchesAnyTerrain", terrains: sources },
         ],
         effects: [
           { type: "setTerrain", terrain: kind },
@@ -764,7 +768,9 @@ function makeExtend(kind: TerrainKind, label: string): CardArchetype {
 }
 
 const EXTEND_ARCHETYPES: CardArchetype[] = [
-  makeExtend("plain", "Plain"),
+  // Plain grows from any walkable land — so you can push grassland inland from
+  // a beach (coast) or down from a hill, not only from another plain.
+  makeExtend("plain", "Plain", ["plain", "coast", "hill"]),
   makeExtend("hill", "Hill"),
   makeExtend("mountain", "Mountain"),
   makeExtend("basalt", "Basalt"),
