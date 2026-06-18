@@ -43,10 +43,22 @@ const DualCell = memo(function DualCell({
   if (nw.layer < 0 && ne.layer < 0 && se.layer < 0 && sw.layer < 0) return null;
   const ox = (i - 0.5) * U;
   const oy = (j - 0.5) * U;
-  const shapes = cellShapes(nw, ne, se, sw);
+  const [base, ...bands] = cellShapes(nw, ne, se, sw);
   return (
     <>
-      {shapes.map((s, k) => (
+      {/* Base layer as a pixel-snapped rect so adjacent cells tile with no AA
+          gap (the seam that otherwise crosses each world-tile center). */}
+      <rect
+        x={ox}
+        y={oy}
+        width={U}
+        height={U}
+        fill={base.color}
+        shapeRendering="crispEdges"
+      />
+      {/* Diagonal transition bands, drawn smooth and stroked in their own color
+          so band-to-band edges across cells don't crack. */}
+      {bands.map((s, k) => (
         <polygon
           key={k}
           fill={s.color}
