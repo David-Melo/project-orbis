@@ -51,7 +51,7 @@ const DualCell = memo(function DualCell({
           key={k}
           fill={s.color}
           stroke={s.color}
-          strokeWidth={0.75}
+          strokeWidth={1}
           strokeLinejoin="round"
           points={s.points.map(([lx, ly]) => `${ox + lx * U},${oy + ly * U}`).join(" ")}
         />
