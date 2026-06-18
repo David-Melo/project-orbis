@@ -6,12 +6,14 @@ import {
 } from "../engine/components";
 
 /**
- * Visual "stacking height" per terrain, used for corner blending: a tile cuts a
- * diagonal corner wherever it sits ABOVE its neighbors, revealing the lower
- * terrain beneath. Water is low, land rises, peaks are highest. Empty/void are
- * the background (lowest), so coastlines and islands get diagonal silhouettes.
+ * Terrain stacking order, used by the dual-grid renderer to decide which
+ * terrain sits "above" which at a shared corner. Lower numbers render beneath
+ * higher ones, so the marching-squares contour between two layers draws the
+ * higher terrain over the lower with a diagonal/curved boundary. Water is low,
+ * land rises, peaks are highest; void/empty are the background (lowest), giving
+ * islands and coastlines diagonal silhouettes.
  */
-const BLEND_HEIGHT: Record<TerrainKind, number> = {
+const TERRAIN_LAYER: Record<TerrainKind, number> = {
   void: -1,
   empty: -1,
   ocean: 0,
@@ -29,8 +31,8 @@ const BLEND_HEIGHT: Record<TerrainKind, number> = {
   volcano: 5,
 };
 
-export function blendHeight(kind: TerrainKind): number {
-  return BLEND_HEIGHT[kind] ?? 0;
+export function terrainLayer(kind: TerrainKind): number {
+  return TERRAIN_LAYER[kind] ?? 0;
 }
 
 /** Muted bank color a river tile rests on, so the river reads as a thin line. */

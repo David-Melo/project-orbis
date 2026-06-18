@@ -103,41 +103,50 @@ body {
   width: max-content;
 }
 
-.map-grid {
-  display: grid;
-  gap: 1px;
+/* Dual-grid terrain SVG with a transparent interaction grid layered on top. */
+.map-stage {
+  position: relative;
   background: #05070a;
 }
 
-.tile {
+.map-terrain {
+  display: block;
+  position: absolute;
+  inset: 0;
+}
+
+.map-interact {
+  position: absolute;
+  inset: 0;
+  display: grid;
+}
+
+.icell {
   width: var(--tile);
   height: var(--tile);
   padding: 0;
-  border: none;
+  margin: 0;
+  border: 1px solid rgba(255, 255, 255, 0.035);
   cursor: pointer;
-  display: block;
-  position: relative;
   background: transparent;
   line-height: 0;
 }
 
-.svgtile {
-  display: block;
-  width: 100%;
-  height: 100%;
+.icell:hover {
+  background: rgba(255, 255, 255, 0.07);
 }
 
-.tile--assigned {
+.icell--assigned {
   box-shadow: inset 0 0 0 2px var(--accent);
   z-index: 2;
 }
 
-.tile--inspected {
+.icell--inspected {
   box-shadow: inset 0 0 0 2px #fff;
   z-index: 3;
 }
 
-.tile--assigned.tile--inspected {
+.icell--assigned.icell--inspected {
   box-shadow: inset 0 0 0 2px #fff, 0 0 0 2px var(--accent);
 }
 
