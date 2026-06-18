@@ -1,35 +1,28 @@
 import { Rng } from "../engine/rng";
-import { WATER_TERRAINS, type TileEntity } from "../engine/components";
+import type { TileEntity } from "../engine/components";
 import { orthogonalNeighbors, type WorldState } from "../engine/world";
 import { ARCHETYPES } from "../cards/archetypes";
 import { analyzeContext } from "./contextAnalysis";
 
 /**
- * AssignmentSystem (formerly frontier-only).
+ * AssignmentSystem.
  *
- * The world is now reversible, so a session may be assigned an empty frontier
- * tile OR an existing "lively" edge tile (a coastline, riverbank, border, or
- * frontier) where change is physically plausible. Deep, homogeneous interior
- * tiles are left stable. A tile is only a candidate if at least one archetype
- * can actually generate a card for it.
+ * The random daily ritual (Start Day) is a GROWTH phase: it only ever assigns
+ * an EMPTY frontier tile — an empty cell orthogonally adjacent to something
+ * non-empty — so the world grows outward at its edge and existing terrain is
+ * never disturbed by chance.
+ *
+ * Existing tiles can still be transformed, but only when the player
+ * DELIBERATELY clicks one (see isEligibleTile + gameStore.handleTileClick).
+ * That keeps reversibility available on demand without the dice ever reaching
+ * into the interior.
  */
 
-/** True if the tile sits on an active edge where transformation makes sense. */
-export function isLivelyTile(world: WorldState, tile: TileEntity): boolean {
-  if (tile.terrain.kind === "void") return false;
-  const neighbors = orthogonalNeighbors(world, tile);
-
-  if (tile.terrain.kind === "empty") {
-    // Frontier: an empty tile touching something non-empty.
-    return neighbors.some((n) => n.terrain.kind !== "empty" && n.terrain.kind !== "void");
-  }
-
-  // Existing tile: lively if it borders empty space, water, or different terrain.
-  return neighbors.some(
-    (n) =>
-      n.terrain.kind === "empty" ||
-      WATER_TERRAINS.has(n.terrain.kind) ||
-      n.terrain.kind !== tile.terrain.kind,
+/** An empty tile on the growing edge of the world. */
+export function isFrontierEmpty(world: WorldState, tile: TileEntity): boolean {
+  if (tile.terrain.kind !== "empty") return false;
+  return orthogonalNeighbors(world, tile).some(
+    (n) => n.terrain.kind !== "empty" && n.terrain.kind !== "void",
   );
 }
 
@@ -40,14 +33,14 @@ export function isEligibleTile(world: WorldState, tile: TileEntity): boolean {
   return ARCHETYPES.some((a) => a.canGenerate(ctx, world));
 }
 
-/** All tiles that may be handed to a session by the random daily ritual. */
+/** Growth candidates for the random ritual: empty frontier tiles with a hand. */
 export function findAssignableTiles(world: WorldState): TileEntity[] {
-  return world.tiles.filter((t) => isLivelyTile(world, t) && isEligibleTile(world, t));
+  return world.tiles.filter((t) => isFrontierEmpty(world, t) && isEligibleTile(world, t));
 }
 
 /**
- * Pick an assignable tile deterministically from the world's RNG state.
- * Returns undefined if nothing is currently assignable.
+ * Pick a frontier tile deterministically from the world's RNG state.
+ * Returns undefined if there is no eligible growth frontier.
  */
 export function assignFrontierTile(world: WorldState): TileEntity | undefined {
   const candidates = findAssignableTiles(world);
