@@ -335,6 +335,12 @@ describe("hand composition (no weird or duplicate options)", () => {
     expect(canGen("extend_plain", makeContext(["coast", "ocean"], { averageElevation: 2 }))).toBe(false);
   });
 
+  it("titles a feature-copy 'Extend' but a grow-from-different-source 'Form'", () => {
+    expect(build("extend_plain", makeContext(["plain"])).title).toBe("Extend Plain");
+    expect(build("extend_plain", makeContext(["coast"])).title).toBe("Form Plain");
+    expect(build("extend_plain", makeContext(["cliff"])).title).toBe("Form Plain");
+  });
+
   it("INVARIANT: any empty tile touching walkable land (not open ocean) can grow more land", () => {
     const landKinds: Array<Parameters<typeof makeContext>[0]> = [
       ["plain"], ["coast"], ["cliff"], ["hill"], ["mountain"], ["basalt"], ["wetland"],

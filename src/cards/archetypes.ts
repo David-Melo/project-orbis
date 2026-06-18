@@ -752,8 +752,11 @@ function makeExtend(kind: TerrainKind, label: string, sources: TerrainKind[] = [
     build(ctx, _w, rng) {
       const noun = label.toLowerCase();
       const moisture = kind === "wetland" ? 7 : kind === "basalt" ? 2 : kind === "mountain" ? 3 : 4;
+      // "Extend" when copying an identical neighbor; "Form" when growing this
+      // terrain from a different source (e.g. grassland behind a coast/cliff).
+      const title = ctx.adjacentTerrains.includes(kind) ? `Extend ${label}` : `Form ${label}`;
       return {
-        title: `Extend ${label}`,
+        title,
         requirements: [
           { type: "targetTerrainIn", terrains: ["empty"] },
           { type: "touchesAnyTerrain", terrains: sources },
