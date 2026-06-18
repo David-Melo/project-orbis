@@ -147,7 +147,45 @@ export const ARCHETYPES: CardArchetype[] = [
     }),
   },
 
-  // 3. Spread Ocean — the sea grows into low, ocean-adjacent frontier, and can
+  // 3. Extend Coast — build coast outward from EXISTING coast (not just where
+  //    land meets open ocean), so you can widen beaches, bend a shoreline a
+  //    tile inland, or turn a near-shore plain into a sandy beach.
+  {
+    id: "extend_coast",
+    name: "Extend Coast",
+    age: "primordial",
+    targets: ["empty", "plain"],
+    canGenerate(ctx) {
+      return (
+        targetOk(this, ctx) &&
+        ctx.adjacentTerrains.includes("coast") &&
+        !ctx.touchesOcean &&
+        !ctx.touchesLava &&
+        ctx.averageElevation <= 5
+      );
+    },
+    build: (ctx, _w, rng) => ({
+      title: ctx.targetTerrain === "plain" ? "Form Beach" : "Extend Coast",
+      requirements: [
+        { type: "targetTerrainIn", terrains: ["empty", "plain"] },
+        { type: "touchesTerrain", terrain: "coast" },
+        { type: "maxElevation", value: 6 },
+      ],
+      effects: [
+        { type: "setTerrain", terrain: "coast" },
+        { type: "setElevation", value: elevationFor("coast", ctx.averageElevation) },
+        { type: "adjustMoisture", amount: 3 },
+        { type: "addTrait", trait: "sandy" },
+      ],
+      flavor: pickFlavor(rng, [
+        "The shore widens into a low band of sand and shingle.",
+        "The coastline reaches a little further along the water.",
+        "Wind and tide spread the beach across the margin.",
+      ]),
+    }),
+  },
+
+  // 4. Spread Ocean — the sea grows into low, ocean-adjacent frontier, and can
   //    ERODE a coast or wetland back into open water.
   {
     id: "spread_ocean",

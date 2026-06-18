@@ -74,6 +74,17 @@ expect("freeze", ctx(["coast"], { averageTemperature: 7 }), false, "#5 freeze te
 expect("freeze", ctx(["coast"], { averageTemperature: 2 }), true, "#5 freeze at a cold latitude");
 expect("freeze", ctx(["ice"], { averageTemperature: 3 }), true, "#5 freeze beside existing ice");
 
+// Coast extension (build/sculpt a coastline beyond direct ocean contact):
+expect("extend_coast", ctx(["coast", "plain"], { averageElevation: 3 }), true, "coast: extend from existing coast inland");
+expect("extend_coast", ctx(["coast"], { targetTerrain: "plain", targetElevation: 3, averageElevation: 3 }), true, "coast: form a beach from a near-shore plain");
+expect("extend_coast", ctx(["ocean", "coast"], { averageElevation: 1 }), false, "coast: deferred to form_coast when ocean is adjacent");
+expect("extend_coast", ctx(["plain", "plain"], { averageElevation: 4 }), false, "coast: not without an adjacent coast");
+{
+  const c = ctx(["coast", "plain"], { averageElevation: 3 });
+  console.log(`${terrainOf("extend_coast", c) === "coast" ? "ok" : "FAIL"}: coast: extension produces coast`);
+  if (terrainOf("extend_coast", c) !== "coast") failures++;
+}
+
 // Reversibility (the new capability):
 // Coast can erode back to ocean.
 expect("spread_ocean", ctx(["ocean", "ocean"], { targetTerrain: "coast", targetElevation: 2, averageElevation: 1 }), true, "rev: coast erodes to ocean");
