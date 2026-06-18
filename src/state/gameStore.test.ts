@@ -22,6 +22,9 @@ describe("GameStore — the core loop", () => {
     const assigned = s.world.tiles.find((t) => t.id === s.world.assignedTileId)!;
     expect(assigned).toBeDefined();
     expect(s.context!.targetTerrain).toBe("empty"); // growth-only
+    // A card is pre-selected so a second Space is an instant random move.
+    expect(s.selectedCardId).toBeDefined();
+    expect(s.hand.some((c) => c.id === s.selectedCardId)).toBe(true);
   });
 
   it("confirming a card applies it, records an event, and keeps the day", () => {

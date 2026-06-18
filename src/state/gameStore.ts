@@ -16,7 +16,7 @@ import {
   loadWorld,
   saveWorld,
 } from "../persistence/storage";
-import { hashSeed } from "../engine/rng";
+import { Rng, hashSeed } from "../engine/rng";
 
 export type Phase = "idle" | "choosing";
 
@@ -109,12 +109,18 @@ export class GameStore {
       return;
     }
 
+    // Default-select a random card so a second Space is a quick random move.
+    const rng = new Rng(world.seed);
+    rng.setState(world.rngState);
+    const defaultCard = rng.pick(hand);
+    world.rngState = rng.getState();
+
     this.persist();
     this.set({
       phase: "choosing",
       hand,
       context,
-      selectedCardId: undefined,
+      selectedCardId: defaultCard.id,
       inspectedTileId: tile.id,
       message: `Day ${world.currentDay}: tile (${tile.position.x}, ${tile.position.y}) [${tile.terrain.kind}] offers ${hand.length} futures.`,
     });
