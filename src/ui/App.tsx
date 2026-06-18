@@ -95,6 +95,7 @@ function Legend() {
     [".", "empty"],
     ["~", "ocean"],
     ["=", "coast"],
+    ["/", "cliff"],
     ["_", "plain"],
     ["n", "hill"],
     ["^", "mountain"],

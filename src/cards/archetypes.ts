@@ -39,7 +39,6 @@ export type ArchetypeResult = {
   flavor: string;
 };
 
-const WATER_TOUCH: TerrainKind[] = ["ocean", "coast", "lake", "river", "wetland"];
 const RIVER_SOURCE: TerrainKind[] = ["hill", "mountain", "volcano", "river", "lake", "wetland", "ice"];
 const FREEZABLE_TOUCH: TerrainKind[] = ["ocean", "coast", "lake", "river", "wetland", "ice", "mountain"];
 const WATER_KINDS: TerrainKind[] = ["ocean", "coast", "lake", "river", "wetland"];
@@ -59,6 +58,8 @@ function elevationFor(kind: TerrainKind, base: number): number {
       return 0;
     case "coast":
       return clamp(Math.min(base, 3), 1, 3);
+    case "cliff":
+      return clamp(Math.max(base, 5), 5, 9);
     case "wetland":
       return clamp(base - 1, 1, 3);
     case "lake":
@@ -197,21 +198,24 @@ const PRIMARY_ARCHETYPES: CardArchetype[] = [
     }),
   },
 
-  // 4. Spread Ocean — the sea grows into low, ocean-adjacent frontier, and can
-  //    ERODE a coast or wetland back into open water.
+  // 4. Spread Ocean — the sea grows into low frontier beside any SHORELINE
+  //    (open ocean, a coast, or a wet marsh — all places the sea can reach),
+  //    and can erode a coast/wetland back into open water.
   {
     id: "spread_ocean",
     name: "Spread Ocean",
     age: "primordial",
     targets: ["empty", "coast", "wetland"],
     canGenerate(ctx) {
-      return targetOk(this, ctx) && ctx.touchesOcean && ctx.averageElevation <= 3;
+      const shoreline =
+        ctx.touchesOcean || ctx.adjacentTerrains.includes("coast") || ctx.adjacentTerrains.includes("wetland");
+      return targetOk(this, ctx) && shoreline && ctx.averageElevation <= 3;
     },
     build: (ctx, _w, rng) => ({
       title: ctx.targetTerrain === "empty" ? "Spread Ocean" : "Erode Shore",
       requirements: [
         { type: "targetTerrainIn", terrains: ["empty", "coast", "wetland"] },
-        { type: "touchesTerrain", terrain: "ocean" },
+        { type: "touchesAnyTerrain", terrains: ["ocean", "coast", "wetland"] },
         { type: "maxElevation", value: 4 },
       ],
       effects: [
@@ -267,23 +271,52 @@ const PRIMARY_ARCHETYPES: CardArchetype[] = [
     }),
   },
 
-  // 5. Sink Land — the DOWNWARD ladder, mirroring Raise Land. Lowers land a
-  //    step toward water: plain → coast → (ocean by the sea, else wetland) →
-  //    lake. On existing tiles it needs no adjacent water (deliberate
-  //    subsidence), letting you carve channels and close off islands. On empty
-  //    frontier it still needs a water neighbor, so random growth never floods
-  //    dry land by chance.
+  // 4b. Form Cliff — where HIGH land meets the sea, the shoreline is a cliff
+  //     rather than a low beach. An alternative to Form Coast when the
+  //     surrounding land stands tall; can also be raised from an existing
+  //     coast or hill at the water's edge.
+  {
+    id: "form_cliff",
+    name: "Form Cliff",
+    age: "primordial",
+    targets: ["empty", "coast", "hill"],
+    canGenerate(ctx) {
+      const atSea = ctx.touchesOcean || ctx.adjacentTerrains.includes("coast");
+      return targetOk(this, ctx) && atSea && !ctx.touchesLava && ctx.averageElevation >= 5;
+    },
+    build: (ctx, _w, rng) => ({
+      title: ctx.targetTerrain === "empty" ? "Form Cliff" : "Raise Sea Cliff",
+      requirements: [
+        { type: "targetTerrainIn", terrains: ["empty", "coast", "hill"] },
+        { type: "touchesAnyTerrain", terrains: ["ocean", "coast"] },
+        { type: "minElevation", value: 5 },
+      ],
+      effects: [
+        { type: "setTerrain", terrain: "cliff" },
+        { type: "setElevation", value: elevationFor("cliff", ctx.averageElevation) },
+        { type: "adjustMoisture", amount: 3 },
+        { type: "addTrait", trait: "sheer" },
+      ],
+      flavor: pickFlavor(rng, [
+        "The high land breaks off sheer where it meets the water.",
+        "Waves hammer the foot of a tall stone cliff.",
+        "The coast rises into a wall of rock above the sea.",
+      ]),
+    }),
+  },
+
+  // 5. Sink Land — the DOWNWARD ladder for EXISTING land, mirroring Raise Land:
+  //    plain → coast → (ocean by the sea, else wetland) → lake. A deliberate
+  //    (click-targeted) transform with no adjacent-water requirement, so you
+  //    can carve channels and close off islands. It is not a growth card, so it
+  //    never appears on empty frontier during the random ritual.
   {
     id: "sink_land",
     name: "Sink Land",
     age: "primordial",
-    targets: ["empty", "plain", "coast", "wetland"],
+    targets: ["plain", "coast", "wetland"],
     canGenerate(ctx) {
-      if (!targetOk(this, ctx)) return false;
-      if (ctx.targetTerrain === "empty") {
-        return (ctx.touchesOcean || ctx.touchesFreshWater) && ctx.averageElevation <= 4;
-      }
-      return true; // existing low land/coast/wetland can be deliberately sunk
+      return targetOk(this, ctx);
     },
     build: (ctx, _w, rng) => {
       let kind: TerrainKind;
@@ -300,26 +333,15 @@ const PRIMARY_ARCHETYPES: CardArchetype[] = [
           title = ctx.touchesOcean ? "Flood Shore" : "Sink to Marsh";
           trait = kind === "wetland" ? "marsh" : "tidal";
           break;
-        case "wetland":
+        default: // wetland
           kind = "lake";
           title = "Deepen to Lake";
           trait = "freshwater";
           break;
-        default: // empty
-          kind = "wetland";
-          title = "Sink Land";
-          trait = "marsh";
-          break;
-      }
-      const requirements: Requirement[] = [
-        { type: "targetTerrainIn", terrains: ["empty", "plain", "coast", "wetland"] },
-      ];
-      if (ctx.targetTerrain === "empty") {
-        requirements.push({ type: "touchesAnyTerrain", terrains: WATER_TOUCH });
       }
       return {
         title,
-        requirements,
+        requirements: [{ type: "targetTerrainIn", terrains: ["plain", "coast", "wetland"] }],
         effects: [
           { type: "setTerrain", terrain: kind },
           { type: "setElevation", value: elevationFor(kind, ctx.averageElevation) },
@@ -525,9 +547,10 @@ const PRIMARY_ARCHETYPES: CardArchetype[] = [
     }),
   },
 
-  // 11. Form Lake — fresh water pools in a genuine low BASIN. Fed by a river /
-  //     wetland / meltwater, OR simply collected in a hollow ringed by land —
-  //     so you can branch a brand-new lake into shaped continent.
+  // 11. Form Lake — fresh water pools where there is a SOURCE to feed it: an
+  //     adjacent river, wetland, lake or meltwater. Pooling water in a dry
+  //     hollow with no source is Form Spring's job (a spring-fed pool), so the
+  //     two never offer the same lake on the same tile.
   {
     id: "form_lake",
     name: "Form Lake",
@@ -537,13 +560,14 @@ const PRIMARY_ARCHETYPES: CardArchetype[] = [
       return (
         targetOk(this, ctx) &&
         ctx.averageElevation <= 5 &&
-        (ctx.touchesFreshWater || ctx.touchesIce || ctx.isBasin)
+        (ctx.touchesFreshWater || ctx.touchesIce)
       );
     },
     build: (ctx, _w, rng) => ({
-      title: ctx.isBasin && !ctx.touchesFreshWater ? "Flood Basin" : "Form Lake",
+      title: "Form Lake",
       requirements: [
         { type: "targetTerrainIn", terrains: ["empty", "plain", "wetland", "basalt"] },
+        { type: "touchesAnyTerrain", terrains: ["river", "lake", "wetland", "ice"] },
         { type: "maxElevation", value: 6 },
       ],
       effects: [
@@ -561,10 +585,10 @@ const PRIMARY_ARCHETYPES: CardArchetype[] = [
     }),
   },
 
-  // 12. Form Spring — groundwater wells up on dry land that has some latent
-  //     moisture and isn't already beside water. A marshy wetland, or a
-  //     spring-fed pool if it sits in a basin. This is how you seed brand-new
-  //     water into dry interior instead of being stuck with raise/erupt.
+  // 12. Form Spring — groundwater wells up in genuinely DRY interior land (not
+  //     touching ANY water, including a coast) that has latent moisture. A
+  //     marshy wetland, or a spring-fed pool in a basin. This is the only way
+  //     to seed brand-new water away from existing water.
   {
     id: "form_spring",
     name: "Form Spring",
@@ -574,9 +598,8 @@ const PRIMARY_ARCHETYPES: CardArchetype[] = [
       return (
         targetOk(this, ctx) &&
         ctx.touchesLand &&
-        !ctx.touchesOcean &&
+        !ctx.touchesWater &&
         !ctx.touchesLava &&
-        !ctx.touchesFreshWater &&
         ctx.averageMoisture >= 3 &&
         ctx.averageElevation <= 6
       );
@@ -660,7 +683,7 @@ function makeExtend(kind: TerrainKind, label: string): CardArchetype {
     },
     build(ctx, _w, rng) {
       const noun = label.toLowerCase();
-      const moisture = kind === "basalt" ? 2 : kind === "mountain" ? 3 : 4;
+      const moisture = kind === "wetland" ? 7 : kind === "basalt" ? 2 : kind === "mountain" ? 3 : 4;
       return {
         title: `Extend ${label}`,
         requirements: [
@@ -687,6 +710,7 @@ const EXTEND_ARCHETYPES: CardArchetype[] = [
   makeExtend("hill", "Hill"),
   makeExtend("mountain", "Mountain"),
   makeExtend("basalt", "Basalt"),
+  makeExtend("wetland", "Wetland"),
 ];
 
 export const ARCHETYPES: CardArchetype[] = [...PRIMARY_ARCHETYPES, ...EXTEND_ARCHETYPES];

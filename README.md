@@ -23,13 +23,18 @@ for the full vision and roadmap.
   apply effects → record an event → persist.
 - **Card archetypes** split into two verbs plus context actions:
   - **Extend (lateral):** a feature grows sideways into empty frontier — plain,
-    hill, mountain, basalt, coast, ocean (spread), lava (spread).
+    hill, mountain, basalt, wetland, coast, ocean (spread), lava (spread).
   - **Raise / Sink (vertical ladders):** uplift land coast→plain→hill→mountain,
     or sink it down plain→coast→(ocean/wetland)→lake. Wear Down erodes heights.
-  - **Form Shore:** begin a coastline from dry land (no sea required), so a
-    growing continent can be outlined and closed into an island.
-  - **Context actions:** form coast, spread ocean, erupt volcano, cool lava,
-    freeze, melt ice, carve river, form lake, form spring.
+  - **Shorelines:** Form Shore begins a coast from dry land; Form Cliff makes a
+    tall shore where high land meets the sea; Spread Ocean places sea beside any
+    shoreline (ocean, coast or wetland) so islands can be carved and closed off.
+  - **Context actions:** form coast, erupt volcano, cool lava, freeze, melt ice,
+    carve river, form lake (needs a water source), form spring (seeds water in
+    dry interior).
+  - **Rule integrity** is locked down by a Vitest suite (`npm test`) that checks
+    each card's gating, the transition ladders, and — crucially — that no two
+    cards ever offer the same terrain on one tile (no duplicate/weird options).
 - **Reversible world:** cards can transform existing edge tiles, not just empty
   frontier — shores erode (coast→ocean), heights wear down (mountain→hill),
   land subsides to marsh, water freezes/melts in place, and new lakes can be

@@ -39,7 +39,7 @@ type Listener = () => void;
  * (and clones the world reference) so React re-renders, even though the
  * systems mutate the world in place.
  */
-class GameStore {
+export class GameStore {
   private state: GameState;
   private listeners = new Set<Listener>();
 

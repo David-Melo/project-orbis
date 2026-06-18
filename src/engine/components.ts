@@ -4,6 +4,7 @@ export type TerrainKind =
   | "empty"
   | "ocean"
   | "coast"
+  | "cliff"
   | "plain"
   | "hill"
   | "mountain"
@@ -113,6 +114,7 @@ export const TERRAIN_GLYPH: Record<TerrainKind, string> = {
   empty: ".",
   ocean: "~",
   coast: "=",
+  cliff: "/",
   plain: "_",
   hill: "n",
   mountain: "^",
@@ -131,6 +133,7 @@ export const TERRAIN_COLOR: Record<TerrainKind, string> = {
   empty: "#11151c",
   ocean: "#15396b",
   coast: "#caa86a",
+  cliff: "#8a7b66",
   plain: "#5a8a43",
   hill: "#7a8a3f",
   mountain: "#7d7468",
@@ -148,6 +151,7 @@ export const TERRAIN_LABEL: Record<TerrainKind, string> = {
   empty: "Empty frontier",
   ocean: "Ocean",
   coast: "Coast",
+  cliff: "Cliff",
   plain: "Plain",
   hill: "Hill",
   mountain: "Mountain",
@@ -186,6 +190,7 @@ export const HIGH_GROUND_TERRAINS: ReadonlySet<TerrainKind> = new Set<TerrainKin
 /** Solid land the world can grow outward from. */
 export const LAND_TERRAINS: ReadonlySet<TerrainKind> = new Set<TerrainKind>([
   "coast",
+  "cliff",
   "plain",
   "hill",
   "mountain",
@@ -205,6 +210,8 @@ export function defaultSurfaceFor(kind: TerrainKind): SurfaceComponent {
       return surf({ solid: true, liquid: true, floodable: true, walkable: true, freezable: true });
     case "coast":
       return surf({ solid: true, walkable: true, buildable: true, floodable: true, freezable: true });
+    case "cliff":
+      return surf({ solid: true, walkable: true, freezable: true });
     case "plain":
       return surf({ solid: true, walkable: true, buildable: true, burnable: true, freezable: true });
     case "hill":
