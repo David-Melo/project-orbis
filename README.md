@@ -24,10 +24,12 @@ for the full vision and roadmap.
 - **Card archetypes** split into two verbs plus context actions:
   - **Extend (lateral):** a feature grows sideways into empty frontier — plain,
     hill, mountain, basalt, coast, ocean (spread), lava (spread).
-  - **Raise / Wear Down (vertical):** uplift existing land coast→plain→hill→
-    mountain, or erode it back down.
-  - **Context actions:** form coast, spread ocean, sink land, erupt volcano,
-    cool lava, freeze, melt ice, carve river, form lake, form spring.
+  - **Raise / Sink (vertical ladders):** uplift land coast→plain→hill→mountain,
+    or sink it down plain→coast→(ocean/wetland)→lake. Wear Down erodes heights.
+  - **Form Shore:** begin a coastline from dry land (no sea required), so a
+    growing continent can be outlined and closed into an island.
+  - **Context actions:** form coast, spread ocean, erupt volcano, cool lava,
+    freeze, melt ice, carve river, form lake, form spring.
 - **Reversible world:** cards can transform existing edge tiles, not just empty
   frontier — shores erode (coast→ocean), heights wear down (mountain→hill),
   land subsides to marsh, water freezes/melts in place, and new lakes can be

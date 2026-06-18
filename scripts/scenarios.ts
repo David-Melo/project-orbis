@@ -112,6 +112,32 @@ expect("extend_plain", ctx(["ocean"], { averageElevation: 1 }), false, "extend: 
   if (terrainOf("extend_mountain", c) !== "mountain") failures++;
 }
 
+// Coastlines from dry land + the downward ladder (closing off islands):
+expect("form_shore", ctx(["plain", "plain"], { averageElevation: 4 }), true, "shore: form a shoreline from dry plains");
+expect("form_shore", ctx(["plain", "ocean"], { averageElevation: 2 }), false, "shore: deferred to form_coast next to ocean");
+expect("form_shore", ctx(["plain", "coast"], { averageElevation: 3 }), false, "shore: deferred to extend_coast next to coast");
+{
+  const dry = ctx(["plain"], { averageElevation: 4 });
+  console.log(`${terrainOf("form_shore", dry) === "coast" ? "ok" : "FAIL"}: shore: dry land becomes coast`);
+  if (terrainOf("form_shore", dry) !== "coast") failures++;
+
+  const plain = ctx(["plain"], { targetTerrain: "plain", targetElevation: 4, averageElevation: 4 });
+  console.log(`${terrainOf("sink_land", plain) === "coast" ? "ok" : "FAIL"}: sink: plain lowers to shore`);
+  if (terrainOf("sink_land", plain) !== "coast") failures++;
+
+  const coast = ctx(["plain"], { targetTerrain: "coast", targetElevation: 2, averageElevation: 3 });
+  console.log(`${terrainOf("sink_land", coast) === "wetland" ? "ok" : "FAIL"}: sink: landlocked coast sinks to marsh`);
+  if (terrainOf("sink_land", coast) !== "wetland") failures++;
+
+  const coastSea = ctx(["ocean"], { targetTerrain: "coast", targetElevation: 2, averageElevation: 1 });
+  console.log(`${terrainOf("sink_land", coastSea) === "ocean" ? "ok" : "FAIL"}: sink: coast by the sea floods to ocean`);
+  if (terrainOf("sink_land", coastSea) !== "ocean") failures++;
+
+  const wet = ctx(["plain"], { targetTerrain: "wetland", targetElevation: 2, averageElevation: 3 });
+  console.log(`${terrainOf("sink_land", wet) === "lake" ? "ok" : "FAIL"}: sink: wetland deepens to lake`);
+  if (terrainOf("sink_land", wet) !== "lake") failures++;
+}
+
 // Reversibility (the new capability):
 // Coast can erode back to ocean.
 expect("spread_ocean", ctx(["ocean", "ocean"], { targetTerrain: "coast", targetElevation: 2, averageElevation: 1 }), true, "rev: coast erodes to ocean");

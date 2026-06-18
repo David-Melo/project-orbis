@@ -227,38 +227,112 @@ const PRIMARY_ARCHETYPES: CardArchetype[] = [
     }),
   },
 
-  // 4. Sink Land — low ground beside water subsides into marshy WETLAND. Works
-  //    on empty frontier OR an existing plain/coast/hill (subsidence).
+  // 4. Form Shore — create a SHORELINE from dry land, even with no sea nearby.
+  //    This is how you outline or begin a coast where none exists, so a growing
+  //    continent can be given a coastline and eventually closed into an island.
+  //    (extend_coast continues an existing coast; form_coast handles the ocean
+  //    boundary; this handles dry land.)
+  {
+    id: "form_shore",
+    name: "Form Shore",
+    age: "primordial",
+    targets: ["empty"],
+    canGenerate(ctx) {
+      return (
+        ctx.targetTerrain === "empty" &&
+        ctx.touchesLand &&
+        !ctx.touchesOcean &&
+        !ctx.touchesLava &&
+        !ctx.adjacentTerrains.includes("coast") &&
+        ctx.averageElevation <= 5
+      );
+    },
+    build: (ctx, _w, rng) => ({
+      title: "Form Shore",
+      requirements: [
+        { type: "targetTerrainIn", terrains: ["empty"] },
+        { type: "maxElevation", value: 6 },
+      ],
+      effects: [
+        { type: "setTerrain", terrain: "coast" },
+        { type: "setElevation", value: elevationFor("coast", ctx.averageElevation) },
+        { type: "adjustMoisture", amount: 5 },
+        { type: "addTrait", trait: "sandy" },
+      ],
+      flavor: pickFlavor(rng, [
+        "The land lies down low and sandy at its margin, a shore in waiting.",
+        "A beach forms along the edge of the dry ground.",
+        "The continent grows itself a coastline.",
+      ]),
+    }),
+  },
+
+  // 5. Sink Land — the DOWNWARD ladder, mirroring Raise Land. Lowers land a
+  //    step toward water: plain → coast → (ocean by the sea, else wetland) →
+  //    lake. On existing tiles it needs no adjacent water (deliberate
+  //    subsidence), letting you carve channels and close off islands. On empty
+  //    frontier it still needs a water neighbor, so random growth never floods
+  //    dry land by chance.
   {
     id: "sink_land",
     name: "Sink Land",
     age: "primordial",
-    targets: ["empty", "plain", "coast", "hill"],
+    targets: ["empty", "plain", "coast", "wetland"],
     canGenerate(ctx) {
-      return (
-        targetOk(this, ctx) &&
-        (ctx.touchesOcean || ctx.touchesFreshWater) &&
-        ctx.averageElevation <= 4
-      );
+      if (!targetOk(this, ctx)) return false;
+      if (ctx.targetTerrain === "empty") {
+        return (ctx.touchesOcean || ctx.touchesFreshWater) && ctx.averageElevation <= 4;
+      }
+      return true; // existing low land/coast/wetland can be deliberately sunk
     },
-    build: (ctx, _w, rng) => ({
-      title: ctx.targetTerrain === "empty" ? "Sink Land" : "Subside to Marsh",
-      requirements: [
-        { type: "targetTerrainIn", terrains: ["empty", "plain", "coast", "hill"] },
-        { type: "touchesAnyTerrain", terrains: WATER_TOUCH },
-      ],
-      effects: [
-        { type: "setTerrain", terrain: "wetland" },
-        { type: "setElevation", value: elevationFor("wetland", ctx.averageElevation) },
-        { type: "adjustMoisture", amount: 4 },
-        { type: "addTrait", trait: "marsh" },
-      ],
-      flavor: pickFlavor(rng, [
-        "The ground loses its argument with the water and softens to marsh.",
-        "Low land sinks into reed, mud, and standing pools.",
-        "Water seeps in and the soil gives way to wetland.",
-      ]),
-    }),
+    build: (ctx, _w, rng) => {
+      let kind: TerrainKind;
+      let title: string;
+      let trait: string;
+      switch (ctx.targetTerrain) {
+        case "plain":
+          kind = "coast";
+          title = "Lower to Shore";
+          trait = "sandy";
+          break;
+        case "coast":
+          kind = ctx.touchesOcean ? "ocean" : "wetland";
+          title = ctx.touchesOcean ? "Flood Shore" : "Sink to Marsh";
+          trait = kind === "wetland" ? "marsh" : "tidal";
+          break;
+        case "wetland":
+          kind = "lake";
+          title = "Deepen to Lake";
+          trait = "freshwater";
+          break;
+        default: // empty
+          kind = "wetland";
+          title = "Sink Land";
+          trait = "marsh";
+          break;
+      }
+      const requirements: Requirement[] = [
+        { type: "targetTerrainIn", terrains: ["empty", "plain", "coast", "wetland"] },
+      ];
+      if (ctx.targetTerrain === "empty") {
+        requirements.push({ type: "touchesAnyTerrain", terrains: WATER_TOUCH });
+      }
+      return {
+        title,
+        requirements,
+        effects: [
+          { type: "setTerrain", terrain: kind },
+          { type: "setElevation", value: elevationFor(kind, ctx.averageElevation) },
+          { type: "adjustMoisture", amount: 4 },
+          { type: "addTrait", trait },
+        ],
+        flavor: pickFlavor(rng, [
+          "The ground gives way and sinks toward the water table.",
+          "Low land settles another step down toward the sea.",
+          "The earth subsides, and water is not far behind.",
+        ]),
+      };
+    },
   },
 
   // 5. Erupt Volcano — a frontier tile, or existing land, erupts into a peak.
@@ -586,6 +660,7 @@ function makeExtend(kind: TerrainKind, label: string): CardArchetype {
     },
     build(ctx, _w, rng) {
       const noun = label.toLowerCase();
+      const moisture = kind === "basalt" ? 2 : kind === "mountain" ? 3 : 4;
       return {
         title: `Extend ${label}`,
         requirements: [
@@ -595,6 +670,7 @@ function makeExtend(kind: TerrainKind, label: string): CardArchetype {
         effects: [
           { type: "setTerrain", terrain: kind },
           { type: "setElevation", value: elevationFor(kind, ctx.averageElevation) },
+          { type: "adjustMoisture", amount: moisture },
         ],
         flavor: pickFlavor(rng, [
           `The ${noun} spreads into the next tile, of a piece with its neighbor.`,
