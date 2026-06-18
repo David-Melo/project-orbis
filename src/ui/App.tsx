@@ -14,33 +14,31 @@ export function App() {
 
   return (
     <div className="app">
-      <header className="app__header">
-        <h1>Project Orbis</h1>
-        <span className="version">v0.0.1 · primordial</span>
-        <span className="day-badge">Day {state.world.currentDay}</span>
-        <p className="status-line">{state.message}</p>
-      </header>
-
       <div className="app__body">
         <aside className="app__left">
+          <header className="app__header">
+            <div className="app__brand">
+              <h1>Project Orbis</h1>
+              <span className="version">v0.0.1 · primordial</span>
+            </div>
+            <span className="day-badge">Day {state.world.currentDay}</span>
+            <p className="status-line">{state.message}</p>
+          </header>
+
+          <SessionDock />
           <DevControls />
-          <HistoryLog />
         </aside>
 
         <div className="app__center">
-          <ViewToggle />
           <MapView />
           {state.viewMode === "elevation" ? <ElevationLegend /> : <Legend />}
         </div>
 
         <aside className="app__right">
           <TileInspector />
+          <HistoryLog />
         </aside>
       </div>
-
-      <footer className="app__dock">
-        <SessionDock />
-      </footer>
     </div>
   );
 }
@@ -92,26 +90,6 @@ function useKeyboardShortcuts() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, []);
-}
-
-function ViewToggle() {
-  const { state, store } = useGame();
-  return (
-    <div className="view-toggle">
-      <button
-        className={`view-toggle__btn ${state.viewMode === "terrain" ? "is-active" : ""}`}
-        onClick={() => store.setViewMode("terrain")}
-      >
-        Terrain
-      </button>
-      <button
-        className={`view-toggle__btn ${state.viewMode === "elevation" ? "is-active" : ""}`}
-        onClick={() => store.setViewMode("elevation")}
-      >
-        Elevation
-      </button>
-    </div>
-  );
 }
 
 function ElevationLegend() {

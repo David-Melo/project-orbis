@@ -27,43 +27,55 @@ body {
   width: 100vw;
   padding: 10px;
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr) auto;
-  gap: 10px;
+  grid-template-rows: minmax(0, 1fr);
   overflow: hidden;
 }
 
+/* Compact header now lives stacked at the top of the left rail. */
 .app__header {
   display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 12px;
+  flex-direction: column;
+  gap: 4px;
   border-bottom: 1px solid var(--border);
   padding-bottom: 8px;
 }
 
+.app__brand {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .app__header h1 {
   margin: 0;
-  font-size: 22px;
+  font-size: 17px;
   letter-spacing: 1px;
 }
 
 .version {
   color: var(--accent);
-  font-size: 12px;
+  font-size: 11px;
   text-transform: uppercase;
 }
 
-.status-line {
-  flex-basis: 100%;
-  margin: 4px 0 0;
-  color: var(--muted);
-  font-size: 13px;
+.day-badge {
+  align-self: flex-start;
 }
 
-/* Three-column body filling the viewport: narrow rails, dominant centered map. */
+.status-line {
+  margin: 2px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+/* Three-column body filling the viewport: dominant centered map between rails.
+   The left rail holds the header, the daily moves, and dev controls; the right
+   rail holds the inspector and the history log. */
 .app__body {
+  height: 100%;
   display: grid;
-  grid-template-columns: minmax(190px, 230px) minmax(0, 1fr) minmax(220px, 300px);
+  grid-template-columns: minmax(230px, 300px) minmax(0, 1fr) minmax(230px, 300px);
   gap: 12px;
   min-height: 0;
   align-items: stretch;
@@ -78,10 +90,10 @@ body {
   overflow-y: auto;
 }
 
-/* Center column: toggle (auto) / map (fills) / legend (auto). */
+/* Center column: map (fills) / legend (auto). */
 .app__center {
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr) auto;
+  grid-template-rows: minmax(0, 1fr) auto;
   gap: 8px;
   min-height: 0;
   min-width: 0;
@@ -173,14 +185,14 @@ body {
 .view-toggle {
   display: flex;
   gap: 0;
-  margin-bottom: 8px;
+  margin-bottom: 10px;
   border: 1px solid var(--border);
   border-radius: 6px;
   overflow: hidden;
-  align-self: center;
 }
 
 .view-toggle__btn {
+  flex: 1;
   background: var(--panel);
   color: var(--muted);
   border: none;
@@ -227,19 +239,12 @@ body {
   color: var(--text);
 }
 
-/* ---- Bottom session dock ---- */
-.app__dock {
-  padding-top: 10px;
-  border-top: 1px solid var(--border);
-  max-height: 30vh;
-  overflow-y: auto;
-}
-
+/* ---- Session dock (now a vertical panel in the left rail) ---- */
 .dock {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  align-items: center;
+  gap: 10px;
+  align-items: stretch;
 }
 
 .dock--idle {
@@ -248,15 +253,18 @@ body {
 
 .dock-head {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: center;
-  gap: 16px;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
 }
 
 .dock-actions {
   display: flex;
   gap: 8px;
+}
+
+.dock-actions .btn {
+  flex: 1;
 }
 
 .dock-hint {
@@ -377,12 +385,12 @@ kbd {
   margin: 0;
 }
 
-/* Hand tiled horizontally and centered in the dock. */
+/* Hand stacked vertically in the left rail so dealing/clearing it never
+   resizes the map. */
 .card-hand {
   display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-  justify-content: center;
+  flex-direction: column;
+  gap: 8px;
 }
 
 .card {
@@ -390,11 +398,11 @@ kbd {
   background: var(--panel-2);
   border: 1px solid var(--border);
   border-radius: 8px;
-  padding: 12px;
+  padding: 10px;
   cursor: pointer;
   font: inherit;
   color: var(--text);
-  width: 240px;
+  width: 100%;
 }
 
 .card:hover {

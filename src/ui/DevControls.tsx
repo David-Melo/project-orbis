@@ -34,6 +34,21 @@ export function DevControls() {
         <h2>Dev Controls</h2>
       </header>
 
+      <div className="view-toggle">
+        <button
+          className={`view-toggle__btn ${state.viewMode === "terrain" ? "is-active" : ""}`}
+          onClick={() => store.setViewMode("terrain")}
+        >
+          Terrain
+        </button>
+        <button
+          className={`view-toggle__btn ${state.viewMode === "elevation" ? "is-active" : ""}`}
+          onClick={() => store.setViewMode("elevation")}
+        >
+          Elevation
+        </button>
+      </div>
+
       <div className="dev-row">
         <input
           className="seed-input"
