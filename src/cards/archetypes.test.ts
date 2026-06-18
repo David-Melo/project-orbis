@@ -191,10 +191,19 @@ describe("sink_land (downward ladder)", () => {
 });
 
 describe("volcano & lava", () => {
-  it("erupt_volcano needs land/lava/volcano and produces a tall volcano", () => {
-    expect(canGen("erupt_volcano", makeContext(["plain"]))).toBe(true);
-    expect(resultTerrain("erupt_volcano", makeContext(["plain"]))).toBe("volcano");
-    const e = resultElevation("erupt_volcano", makeContext(["plain"], { averageElevation: 4 }))!;
+  it("erupt_volcano belongs to the heights: a mountain erupts, vents form near volcanic ground, NOT on bare plains", () => {
+    // A mountain grows into a volcano.
+    expect(canGen("erupt_volcano", makeContext([], { targetTerrain: "mountain" }))).toBe(true);
+    expect(resultTerrain("erupt_volcano", makeContext([], { targetTerrain: "mountain", targetElevation: 8 }))).toBe("volcano");
+    // New vents only within an existing volcanic neighborhood.
+    expect(canGen("erupt_volcano", makeContext(["mountain"]))).toBe(true);
+    expect(canGen("erupt_volcano", makeContext(["volcano"]))).toBe(true);
+    expect(canGen("erupt_volcano", makeContext(["lava"]))).toBe(true);
+    // The bug we are fixing: NO volcano on a random plain with no volcanic neighbor.
+    expect(canGen("erupt_volcano", makeContext(["plain", "plain"]))).toBe(false);
+    expect(canGen("erupt_volcano", makeContext(["coast"]))).toBe(false);
+    // It is still tall.
+    const e = resultElevation("erupt_volcano", makeContext(["mountain"], { averageElevation: 6 }))!;
     expect(e).toBeGreaterThanOrEqual(7);
   });
 
@@ -275,10 +284,10 @@ describe("available actions by neighborhood (the rule the player feels)", () => 
     const ctx = makeContext(["plain", "plain"], { averageElevation: 4, averageMoisture: 5 });
     const a = actions(ctx);
     expect(a).toContain("extend_plain"); // grow the plain sideways
-    expect(a).toContain("erupt_volcano");
     expect(a).toContain("form_shore"); // begin a coastline
     expect(a).toContain("form_spring"); // seed water
     expect(a).not.toContain("raise_land"); // uplift is for existing land, not empty
+    expect(a).not.toContain("erupt_volcano"); // volcanoes don't speckle bare plains
   });
 
   it("an ocean-adjacent frontier resolves through coast or sea, never instant plain", () => {

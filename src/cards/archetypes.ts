@@ -357,19 +357,27 @@ const PRIMARY_ARCHETYPES: CardArchetype[] = [
     },
   },
 
-  // 5. Erupt Volcano — a frontier tile, or existing land, erupts into a peak.
+  // 5. Erupt Volcano — fire belongs to the heights. A MOUNTAIN grows into a
+  //    volcano, and new vents only open within an existing volcanic region
+  //    (next to a mountain, volcano, or lava). It never erupts on a random
+  //    plain, so volcanoes cluster into ranges and fields instead of speckling
+  //    the whole map.
   {
     id: "erupt_volcano",
     name: "Erupt Volcano",
     age: "primordial",
-    targets: ["empty", "plain", "hill", "mountain", "coast", "basalt"],
+    targets: ["empty", "plain", "hill", "mountain", "basalt"],
     canGenerate(ctx) {
-      return targetOk(this, ctx) && (ctx.touchesLand || ctx.touchesLava || ctx.touchesVolcano);
+      if (!targetOk(this, ctx)) return false;
+      // A mountain can erupt directly into a volcano.
+      if (ctx.targetTerrain === "mountain") return true;
+      // Otherwise only within an existing volcanic neighborhood.
+      return ctx.touchesMountain || ctx.touchesVolcano || ctx.touchesLava;
     },
     build: (ctx, _w, rng) => ({
-      title: "Erupt Volcano",
+      title: ctx.targetTerrain === "mountain" ? "Mountain Erupts" : "Erupt Volcano",
       requirements: [
-        { type: "targetTerrainIn", terrains: ["empty", "plain", "hill", "mountain", "coast", "basalt"] },
+        { type: "targetTerrainIn", terrains: ["empty", "plain", "hill", "mountain", "basalt"] },
       ],
       effects: [
         { type: "setTerrain", terrain: "volcano" },
