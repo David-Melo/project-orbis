@@ -83,6 +83,64 @@ describe("archetype registry", () => {
   });
 });
 
+describe("coverage — every archetype fires and every terrain is producible", () => {
+  // A battery of contexts that, together, should exercise the whole deck.
+  const battery: TileContext[] = [
+    makeContext(["plain", "plain"], { averageMoisture: 5 }), // extend_plain, form_shore
+    makeContext(["coast", "plain"], { averageElevation: 3 }), // extend_coast, spread_ocean
+    makeContext(["ocean"], { averageElevation: 1 }), // form_coast, spread_ocean
+    makeContext(["ocean", "hill"], { averageElevation: 6 }), // form_cliff
+    makeContext(["mountain"], { averageElevation: 6 }), // extend_mountain, erupt, carve_river
+    makeContext(["hill"], { averageElevation: 5 }), // extend_hill
+    makeContext(["basalt"], { averageElevation: 4 }), // extend_basalt
+    makeContext(["wetland"], { averageElevation: 2 }), // extend_wetland, form_floodplain
+    makeContext(["volcano"], { averageElevation: 7 }), // erupt_volcano, spread_lava
+    makeContext(["lava"], { averageTemperature: 5 }), // cool_lava, spread_lava
+    makeContext(["river"], { averageElevation: 2 }), // form_lake, carve_river
+    makeContext(["plain", "plain", "plain"], { isBasin: true, averageMoisture: 5, averageElevation: 4 }), // form_spring
+    makeContext(["plain"], { targetTerrain: "coast", averageElevation: 2 }), // raise_land coast->plain, sink_land
+    makeContext(["plain"], { targetTerrain: "plain", averageElevation: 4 }), // raise_land plain->hill, sink_land plain->coast
+    makeContext(["hill"], { targetTerrain: "hill", targetElevation: 6 }), // raise_land hill->mountain, wear_down
+    makeContext([], { targetTerrain: "mountain", targetElevation: 8 }), // wear_down mountain->hill
+    makeContext([], { targetTerrain: "volcano", targetElevation: 9 }), // wear_down volcano->mountain
+    makeContext(["plain"], { targetTerrain: "wetland", averageElevation: 3 }), // sink_land wetland->lake
+    makeContext(["plain"], { targetTerrain: "ocean", averageTemperature: 2 }), // freeze
+    makeContext(["plain"], { targetTerrain: "ice", averageTemperature: 4 }), // melt_ice
+    makeContext([], { targetTerrain: "lava", averageTemperature: 5 }), // cool_lava in place
+  ];
+
+  const firedArchetypes = new Set<string>();
+  const producedTerrains = new Set<string>();
+  for (const ctx of battery) {
+    for (const a of ARCHETYPES) {
+      if (a.canGenerate(ctx, {} as WorldState)) {
+        firedArchetypes.add(a.id);
+        const t = resultTerrain(a.id, ctx);
+        if (t) producedTerrains.add(t);
+      }
+    }
+  }
+
+  it("every archetype in the deck can fire in at least one context (no dead cards)", () => {
+    const missing = ARCHETYPES.map((a) => a.id).filter((id) => !firedArchetypes.has(id));
+    expect(missing, `archetypes that never fired: ${missing.join(", ")}`).toEqual([]);
+  });
+
+  it("every producible terrain is the output of at least one card", () => {
+    const producible: TerrainKind[] = [
+      "ocean", "coast", "cliff", "plain", "hill", "mountain",
+      "volcano", "lava", "basalt", "river", "lake", "wetland", "ice",
+    ];
+    const missing = producible.filter((t) => !producedTerrains.has(t));
+    expect(missing, `terrains no card produces: ${missing.join(", ")}`).toEqual([]);
+  });
+
+  it("only empty and void are non-producible (every other terrain is reachable)", () => {
+    expect(producedTerrains.has("empty")).toBe(false);
+    expect(producedTerrains.has("void")).toBe(false);
+  });
+});
+
 describe("raise_land (vertical uplift)", () => {
   it("targets existing land only, not empty frontier", () => {
     expect(ARCHETYPES_BY_ID.raise_land.targets).toEqual(["coast", "plain", "hill"]);
