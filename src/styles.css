@@ -333,6 +333,15 @@ kbd {
   box-shadow: 0 0 0 1px var(--accent);
 }
 
+.card--nochange {
+  border-style: dashed;
+  opacity: 0.85;
+}
+
+.card--nochange .card__title {
+  color: var(--muted);
+}
+
 .card__top {
   display: flex;
   align-items: center;

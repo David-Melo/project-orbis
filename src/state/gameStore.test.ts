@@ -69,6 +69,25 @@ describe("GameStore — the core loop", () => {
     expect(s.context!.targetTerrain).toBe("plain");
   });
 
+  it("'No Change' on an existing tile leaves it untouched, records nothing, and refunds the day", () => {
+    const store = new GameStore();
+    const plain = store.getState().world.tiles.find((t) => t.terrain.kind === "plain")!;
+    const dayBefore = store.getState().world.currentDay;
+    store.handleTileClick(plain.id);
+
+    const noChange = store.getState().hand.find((c) => c.archetypeId === "no_change");
+    expect(noChange).toBeDefined();
+    store.selectCard(noChange!.id);
+    store.confirmCard();
+
+    const s = store.getState();
+    expect(s.phase).toBe("idle");
+    expect(s.world.events.length).toBe(0); // nothing recorded
+    expect(s.world.currentDay).toBe(dayBefore); // day given back
+    const tile = s.world.tiles.find((t) => t.id === plain.id)!;
+    expect(tile.terrain.kind).toBe("plain"); // unchanged
+  });
+
   it("persists across store instances (localStorage)", () => {
     const a = new GameStore();
     a.startDay();

@@ -9,6 +9,23 @@ import { checkAllRequirements } from "./requirementValidation";
 
 export const HAND_SIZE = 3;
 
+/** Archetype id of the synthetic "leave this tile as it is" option. */
+export const NO_CHANGE_ID = "no_change";
+
+/** A card that changes nothing — offered when acting on an existing tile. */
+function makeNoChangeCard(ctx: TileContext): GeneratedCard {
+  return {
+    id: nextId("card"),
+    archetypeId: NO_CHANGE_ID,
+    title: "No Change",
+    age: "primordial",
+    targetTileId: ctx.targetTileId,
+    requirements: [],
+    effects: [],
+    flavor: "Leave this place as it is.",
+  };
+}
+
 /**
  * Would committing `newTerrain`/`newElevation` on `target` leave an adjacent
  * EMPTY tile with zero legal cards (a dead pocket)? One-step constraint
@@ -57,11 +74,16 @@ export function generateCards(world: WorldState, ctx: TileContext): GeneratedCar
   const eligible = ARCHETYPES.filter((a) => a.canGenerate(ctx, world));
   const target = getTile(world, ctx.targetTileId);
 
+  // Acting on an EXISTING tile reserves a slot for the "No Change" option, so a
+  // transform never forces you to alter a tile you'd rather keep.
+  const existingTile = ctx.targetTerrain !== "empty";
+  const cap = existingTile ? HAND_SIZE - 1 : HAND_SIZE;
+
   const safe: GeneratedCard[] = [];
   const risky: GeneratedCard[] = [];
 
   for (const archetype of rng.shuffle(eligible)) {
-    if (safe.length >= HAND_SIZE) break;
+    if (safe.length >= cap) break;
     const result = archetype.build(ctx, world, rng);
     const card: GeneratedCard = {
       id: nextId("card"),
@@ -90,5 +112,7 @@ export function generateCards(world: WorldState, ctx: TileContext): GeneratedCar
 
   world.rngState = rng.getState();
   // Prefer safe cards; fall back to risky ones so a legal move is never hidden.
-  return [...safe, ...risky].slice(0, HAND_SIZE);
+  const hand = [...safe, ...risky].slice(0, cap);
+  if (existingTile) hand.push(makeNoChangeCard(ctx));
+  return hand;
 }

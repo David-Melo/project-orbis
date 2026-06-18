@@ -5,7 +5,7 @@ import { getTile } from "../engine/world";
 import { generateWorld } from "../systems/worldGeneration";
 import { assignFrontierTile, isEligibleTile } from "../systems/frontierAssignment";
 import { analyzeContext } from "../systems/contextAnalysis";
-import { generateCards } from "../systems/cardGeneration";
+import { generateCards, NO_CHANGE_ID } from "../systems/cardGeneration";
 import { checkAllRequirements } from "../systems/requirementValidation";
 import { applyEffects } from "../systems/effectApplication";
 import { recordEvent } from "../systems/history";
@@ -109,10 +109,12 @@ export class GameStore {
       return;
     }
 
-    // Default-select a random card so a second Space is a quick random move.
+    // Default-select a random REAL card (not "No Change") so a second Space is
+    // a quick random move that actually does something.
     const rng = new Rng(world.seed);
     rng.setState(world.rngState);
-    const defaultCard = rng.pick(hand);
+    const realCards = hand.filter((c) => c.archetypeId !== NO_CHANGE_ID);
+    const defaultCard = rng.pick(realCards.length > 0 ? realCards : hand);
     world.rngState = rng.getState();
 
     this.persist();
@@ -157,6 +159,23 @@ export class GameStore {
     const tile = getTile(world, card?.targetTileId ?? "");
     if (!card || !tile) {
       this.set({ message: "Selected card is no longer valid." });
+      return;
+    }
+
+    // "No Change" leaves the tile as it is — a deliberate non-action that
+    // records nothing and gives the day back.
+    if (card.archetypeId === NO_CHANGE_ID) {
+      world.currentDay = Math.max(0, world.currentDay - 1);
+      world.assignedTileId = undefined;
+      this.persist();
+      this.set({
+        phase: "idle",
+        hand: [],
+        context: undefined,
+        selectedCardId: undefined,
+        inspectedTileId: tile.id,
+        message: `Left (${tile.position.x}, ${tile.position.y}) [${tile.terrain.kind}] unchanged.`,
+      });
       return;
     }
 

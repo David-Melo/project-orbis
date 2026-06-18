@@ -79,17 +79,18 @@ function CardView({
   selected: boolean;
   onSelect: () => void;
 }) {
+  const isNoChange = card.archetypeId === "no_change";
   return (
     <button
       type="button"
-      className={`card ${selected ? "card--selected" : ""}`}
+      className={`card ${selected ? "card--selected" : ""} ${isNoChange ? "card--nochange" : ""}`}
       onClick={onSelect}
     >
       <div className="card__top">
         <span className="card__key">{index}</span>
         <span className="card__title">{card.title}</span>
       </div>
-      <div className="card__age">{card.age}</div>
+      {!isNoChange && <div className="card__age">{card.age}</div>}
       {card.flavor && <div className="card__flavor">{card.flavor}</div>}
       <ul className="card__effects">
         {card.effects.map((effect, i) => (

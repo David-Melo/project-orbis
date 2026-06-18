@@ -1,9 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { generateCards, HAND_SIZE } from "./cardGeneration";
+import { generateCards, HAND_SIZE, NO_CHANGE_ID } from "./cardGeneration";
 import { analyzeContext } from "./contextAnalysis";
 import { assignFrontierTile } from "./frontierAssignment";
 import { checkAllRequirements } from "./requirementValidation";
 import { generateWorld } from "./worldGeneration";
+import { emptyWorld, setTile } from "../test/helpers";
 
 describe("CardGenerationSystem", () => {
   it("deals a non-empty hand of <= HAND_SIZE cards that all pass their own requirements", () => {
@@ -17,6 +18,26 @@ describe("CardGenerationSystem", () => {
       expect(card.targetTileId).toBe(tile.id);
       expect(checkAllRequirements(card.requirements, ctx, w)).toBe(true);
     }
+  });
+
+  it("offers a 'No Change' option on existing tiles, but not on empty frontier", () => {
+    const w = emptyWorld();
+    setTile(w, 3, 3, "plain", 4);
+    setTile(w, 3, 2, "plain", 4);
+    setTile(w, 4, 3, "plain", 4);
+
+    // Existing tile -> hand includes No Change.
+    const land = w.tiles.find((t) => t.position.x === 3 && t.position.y === 3)!;
+    const existingHand = generateCards(w, analyzeContext(w, land));
+    expect(existingHand.some((c) => c.archetypeId === NO_CHANGE_ID)).toBe(true);
+    expect(existingHand.length).toBeLessThanOrEqual(HAND_SIZE);
+    const noChange = existingHand.find((c) => c.archetypeId === NO_CHANGE_ID)!;
+    expect(noChange.effects).toEqual([]);
+
+    // Empty frontier tile -> no No Change (you're growing, not editing).
+    const empty = w.tiles.find((t) => t.position.x === 2 && t.position.y === 3)!;
+    const growthHand = generateCards(w, analyzeContext(w, empty));
+    expect(growthHand.some((c) => c.archetypeId === NO_CHANGE_ID)).toBe(false);
   });
 
   it("is deterministic for a given world RNG state", () => {
