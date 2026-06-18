@@ -25,6 +25,8 @@ body {
 .app {
   min-height: 100vh;
   padding: 16px;
+  display: flex;
+  flex-direction: column;
 }
 
 .app__header {
@@ -56,16 +58,39 @@ body {
   font-size: 13px;
 }
 
-.app__main {
+/* Three-column body: left rail, centered map, right inspector. */
+.app__body {
   display: grid;
-  grid-template-columns: minmax(auto, max-content) 1fr;
-  gap: 20px;
+  grid-template-columns: minmax(260px, 1fr) auto minmax(300px, 1fr);
+  gap: 16px;
   align-items: start;
 }
 
-@media (max-width: 1100px) {
-  .app__main {
+.app__left {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.app__center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.app__right {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+@media (max-width: 1200px) {
+  .app__body {
     grid-template-columns: 1fr;
+  }
+  .app__center {
+    order: -1;
   }
 }
 
@@ -130,14 +155,65 @@ body {
   color: var(--text);
 }
 
-/* ---- Panels ---- */
-.app__side {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  min-width: 320px;
+/* ---- Bottom session dock ---- */
+.app__dock {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
 }
 
+.dock {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: center;
+}
+
+.dock--idle {
+  gap: 8px;
+}
+
+.dock-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+}
+
+.dock-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.dock-hint {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.dock-hint kbd,
+.card__key,
+.btn kbd {
+  font-family: inherit;
+}
+
+kbd {
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  padding: 0 5px;
+  font-size: 11px;
+  color: var(--text);
+}
+
+.btn kbd {
+  border-color: rgba(0, 0, 0, 0.25);
+  background: rgba(0, 0, 0, 0.15);
+  margin-left: 4px;
+}
+
+/* ---- Panels ---- */
 .panel {
   background: var(--panel);
   border: 1px solid var(--border);
@@ -217,34 +293,35 @@ body {
   color: #f0a99c;
 }
 
-/* ---- Session / cards ---- */
-.session-idle {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+.btn--lg {
+  padding: 12px 28px;
+  font-size: 15px;
 }
 
+/* ---- Session / cards ---- */
 .assigned-line {
   font-size: 13px;
-  margin: 0 0 10px;
+  margin: 0;
 }
 
+/* Hand tiled horizontally and centered in the dock. */
 .card-hand {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: center;
 }
 
 .card {
   text-align: left;
   background: var(--panel-2);
   border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 10px;
+  border-radius: 8px;
+  padding: 12px;
   cursor: pointer;
   font: inherit;
   color: var(--text);
+  width: 240px;
 }
 
 .card:hover {
@@ -254,6 +331,32 @@ body {
 .card--selected {
   border-color: var(--accent);
   box-shadow: 0 0 0 1px var(--accent);
+}
+
+.card__top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.card__key {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  font-size: 11px;
+  color: var(--muted);
+  flex: none;
+}
+
+.card--selected .card__key {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #1a1206;
 }
 
 .card__title {
@@ -266,6 +369,7 @@ body {
   text-transform: uppercase;
   color: var(--muted);
   letter-spacing: 0.5px;
+  margin-top: 2px;
 }
 
 .card__flavor {
@@ -275,30 +379,10 @@ body {
   margin: 6px 0;
 }
 
-.card__effects,
-.effect-list {
+.card__effects {
   margin: 6px 0 0;
   padding-left: 16px;
   font-size: 12px;
-}
-
-.card-preview {
-  margin-top: 12px;
-  padding: 10px;
-  background: var(--panel-2);
-  border: 1px dashed var(--accent);
-  border-radius: 6px;
-}
-
-.card-preview h3 {
-  margin: 0 0 4px;
-  font-size: 13px;
-}
-
-.session-actions {
-  display: flex;
-  gap: 8px;
-  margin-top: 12px;
 }
 
 /* ---- Inspector ---- */

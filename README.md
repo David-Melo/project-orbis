@@ -46,7 +46,7 @@ src/
   cards/       the 10 geological archetypes (data + canGenerate/build)
   persistence/ localStorage save/load + JSON export/import
   state/       the game store that drives the loop, plus the React hook
-  ui/          MapView, SessionPanel, TileInspector, HistoryLog, DevControls
+  ui/          MapView, SessionDock, TileInspector, HistoryLog, DevControls
 ```
 
 ### Design rule (from the PRD)
