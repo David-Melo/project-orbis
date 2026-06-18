@@ -156,16 +156,22 @@ describe("coast & ocean", () => {
   it("spread_ocean can place sea next to a shoreline (coast/wetland), not only open ocean", () => {
     expect(canGen("spread_ocean", makeContext(["coast"], { averageElevation: 2 }))).toBe(true);
     expect(canGen("spread_ocean", makeContext(["wetland"], { averageElevation: 2 }))).toBe(true);
+    // REGRESSION: a coastline averages ~3 (coast elevation 3); the sea must
+    // still be able to advance there, and the gate matches the requirement (<=4).
+    expect(canGen("spread_ocean", makeContext(["coast", "coast"], { averageElevation: 3.1 }))).toBe(true);
+    // But not up onto genuinely high ground.
+    expect(canGen("spread_ocean", makeContext(["coast"], { averageElevation: 6 }))).toBe(false);
   });
 
-  it("form_cliff makes a tall shoreline where high land meets the sea", () => {
-    // High land + at the water's edge -> cliff, not a low beach.
-    const high = makeContext(["ocean", "hill"], { averageElevation: 6 });
+  it("form_cliff needs high ground touching the sea, regardless of the watered-down average", () => {
+    // A hill at the water's edge -> cliff, even though the average (incl. sea)
+    // is low. This is the bug fix: cliffs were unreachable before.
+    const high = makeContext(["ocean", "hill"], { averageElevation: 3 });
     expect(canGen("form_cliff", high)).toBe(true);
     expect(resultTerrain("form_cliff", high)).toBe("cliff");
     expect(resultElevation("form_cliff", high)!).toBeGreaterThanOrEqual(5);
-    // Low land at the shore stays a coast, no cliff.
-    expect(canGen("form_cliff", makeContext(["ocean"], { averageElevation: 2 }))).toBe(false);
+    // No high ground at the shore -> a low coast, not a cliff.
+    expect(canGen("form_cliff", makeContext(["ocean", "plain"], { averageElevation: 4 }))).toBe(false);
   });
 
   it("spread_ocean and form_shore are NOT the same as each other (distinct outcomes)", () => {

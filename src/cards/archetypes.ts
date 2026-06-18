@@ -89,6 +89,33 @@ function elevationFor(kind: TerrainKind, base: number): number {
   }
 }
 
+/** Valid elevation band per terrain. */
+const TERRAIN_BANDS: Partial<Record<TerrainKind, [number, number]>> = {
+  ocean: [0, 0],
+  coast: [1, 3],
+  cliff: [5, 9],
+  wetland: [1, 3],
+  lake: [0, 4],
+  river: [1, 7],
+  plain: [3, 6],
+  hill: [5, 8],
+  mountain: [6, 10],
+  volcano: [7, 10],
+  basalt: [3, 8],
+  ice: [0, 10],
+};
+
+/**
+ * Elevation for a LATERAL extension: match the neighbors' height (clamped to
+ * the terrain's band) WITHOUT stepping up. Using elevationFor here is what
+ * caused plains to creep upward to the cap on every extend; extending a
+ * feature should keep it flat, only Raise/Sink change height.
+ */
+function matchElevation(kind: TerrainKind, base: number): number {
+  const [lo, hi] = TERRAIN_BANDS[kind] ?? [0, 10];
+  return clamp(base, lo, hi);
+}
+
 const pickFlavor = (rng: Rng, options: string[]): string => rng.pick(options);
 
 const PRIMARY_ARCHETYPES: CardArchetype[] = [
@@ -215,7 +242,10 @@ const PRIMARY_ARCHETYPES: CardArchetype[] = [
     canGenerate(ctx) {
       const shoreline =
         ctx.touchesOcean || ctx.adjacentTerrains.includes("coast") || ctx.adjacentTerrains.includes("wetland");
-      return targetOk(this, ctx) && shoreline && ctx.averageElevation <= 3;
+      // <= 4 matches this card's own maxElevation requirement; a shoreline sits
+      // at coast elevation (~2-3), so a stricter gate wrongly blocked the sea
+      // from advancing along a low coastline.
+      return targetOk(this, ctx) && shoreline && ctx.averageElevation <= 4;
     },
     build: (ctx, _w, rng) => ({
       title: ctx.targetTerrain === "empty" ? "Spread Ocean" : "Erode Shore",
@@ -277,10 +307,11 @@ const PRIMARY_ARCHETYPES: CardArchetype[] = [
     }),
   },
 
-  // 4b. Form Cliff — where HIGH land meets the sea, the shoreline is a cliff
-  //     rather than a low beach. An alternative to Form Coast when the
-  //     surrounding land stands tall; can also be raised from an existing
-  //     coast or hill at the water's edge.
+  // 4b. Form Cliff — where HIGH GROUND (a hill or mountain) meets the sea, the
+  //     shore is a sheer cliff rather than a low beach. Gated on actually
+  //     touching high ground + the sea, NOT on the neighborhood average (which
+  //     the low water would otherwise drag below the threshold, making cliffs
+  //     unreachable).
   {
     id: "form_cliff",
     name: "Form Cliff",
@@ -288,14 +319,14 @@ const PRIMARY_ARCHETYPES: CardArchetype[] = [
     targets: ["empty", "coast", "hill"],
     canGenerate(ctx) {
       const atSea = ctx.touchesOcean || ctx.adjacentTerrains.includes("coast");
-      return targetOk(this, ctx) && atSea && !ctx.touchesLava && ctx.averageElevation >= 5;
+      return targetOk(this, ctx) && atSea && ctx.touchesHighGround && !ctx.touchesLava;
     },
     build: (ctx, _w, rng) => ({
       title: ctx.targetTerrain === "empty" ? "Form Cliff" : "Raise Sea Cliff",
       requirements: [
         { type: "targetTerrainIn", terrains: ["empty", "coast", "hill"] },
         { type: "touchesAnyTerrain", terrains: ["ocean", "coast"] },
-        { type: "minElevation", value: 5 },
+        { type: "touchesAnyTerrain", terrains: ["hill", "mountain", "volcano"] },
       ],
       effects: [
         { type: "setTerrain", terrain: "cliff" },
@@ -763,7 +794,7 @@ function makeExtend(kind: TerrainKind, label: string, sources: TerrainKind[] = [
         ],
         effects: [
           { type: "setTerrain", terrain: kind },
-          { type: "setElevation", value: elevationFor(kind, ctx.averageElevation) },
+          { type: "setElevation", value: matchElevation(kind, ctx.averageElevation) },
           { type: "adjustMoisture", amount: moisture },
         ],
         flavor: pickFlavor(rng, [

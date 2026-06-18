@@ -6,9 +6,24 @@ import {
 } from "../engine/components";
 
 /**
+ * Shade a terrain color by elevation so the grid reads as a heightmap: low
+ * ground (and deep water) is darker, high ground brighter. Elevation is a
+ * component on every tile, so this is just another view derived from state.
+ */
+function shadeByElevation(hex: string, elevation: number): string {
+  const e = Math.max(0, Math.min(10, elevation));
+  const factor = 0.7 + (e / 10) * 0.55; // 0.70 (lowest) .. 1.25 (highest)
+  const n = parseInt(hex.slice(1), 16);
+  const r = Math.min(255, Math.round(((n >> 16) & 255) * factor));
+  const g = Math.min(255, Math.round(((n >> 8) & 255) * factor));
+  const b = Math.min(255, Math.round((n & 255) * factor));
+  return `rgb(${r}, ${g}, ${b})`;
+}
+
+/**
  * MapView renders the 32x32 grid as colored, glyph-labelled cells. Colors and
- * glyphs are derived entirely from each tile's terrain component — the
- * renderer is not the source of truth. The assigned tile gets a gold ring;
+ * glyphs are derived entirely from each tile's terrain + elevation components —
+ * the renderer is not the source of truth. The assigned tile gets a gold ring;
  * the inspected tile gets a white ring.
  */
 export function MapView() {
@@ -39,8 +54,13 @@ export function MapView() {
               key={tile.id}
               type="button"
               className={className}
-              style={{ background: TERRAIN_COLOR[tile.terrain.kind] }}
-              title={`(${tile.position.x}, ${tile.position.y}) ${TERRAIN_LABEL[tile.terrain.kind]}`}
+              style={{
+                background:
+                  tile.terrain.kind === "empty"
+                    ? TERRAIN_COLOR.empty
+                    : shadeByElevation(TERRAIN_COLOR[tile.terrain.kind], tile.elevation.value),
+              }}
+              title={`(${tile.position.x}, ${tile.position.y}) ${TERRAIN_LABEL[tile.terrain.kind]} · elev ${tile.elevation.value}`}
               onClick={() => store.handleTileClick(tile.id)}
             >
               <span className="tile__glyph">{TERRAIN_GLYPH[tile.terrain.kind]}</span>
