@@ -522,6 +522,20 @@ kbd {
   flex-wrap: wrap;
 }
 
+.dev-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+  font-size: 13px;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.dev-toggle input {
+  cursor: pointer;
+}
+
 .seed-input {
   flex: 1;
   min-width: 120px;

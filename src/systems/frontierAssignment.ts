@@ -87,7 +87,12 @@ function pickByEntropy(pool: Candidate[], rng: Rng): TileEntity {
  * Single pass over the grid: cheap neighbor checks classify each tile, and the
  * (more expensive) eligibility count is computed at most once per candidate.
  */
-export function assignFrontierTile(world: WorldState): TileEntity | undefined {
+export function assignFrontierTile(
+  world: WorldState,
+  opts: { allowTransforms?: boolean } = {},
+): TileEntity | undefined {
+  const allowTransforms = opts.allowTransforms !== false; // default on
+
   const growth: Candidate[] = [];
   const transforms: Candidate[] = [];
 
@@ -95,7 +100,11 @@ export function assignFrontierTile(world: WorldState): TileEntity | undefined {
     const k = tile.terrain.kind;
     if (k === "void") continue;
     const isGrowth = k === "empty";
-    if (isGrowth ? !isFrontierEmpty(world, tile) : !isModifiableEdgeTile(world, tile)) continue;
+    if (isGrowth) {
+      if (!isFrontierEmpty(world, tile)) continue;
+    } else {
+      if (!allowTransforms || !isModifiableEdgeTile(world, tile)) continue;
+    }
     const count = eligibleCount(world, tile);
     if (count === 0) continue;
     (isGrowth ? growth : transforms).push({ tile, count });

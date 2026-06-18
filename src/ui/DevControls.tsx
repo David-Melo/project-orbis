@@ -7,7 +7,7 @@ import { useGame } from "../state/useGame";
  * be exercised freely.
  */
 export function DevControls() {
-  const { store } = useGame();
+  const { state, store } = useGame();
   const [seed, setSeed] = useState("");
   const fileInput = useRef<HTMLInputElement>(null);
 
@@ -51,6 +51,15 @@ export function DevControls() {
           Reset World
         </button>
       </div>
+
+      <label className="dev-toggle" title="When on, Start Day occasionally transforms an existing edge tile (uplift, erode, erupt, melt). When off, it only grows empty frontier tiles.">
+        <input
+          type="checkbox"
+          checked={state.allowTransforms}
+          onChange={(e) => store.setAllowTransforms(e.target.checked)}
+        />
+        <span>Transform existing tiles on Start Day</span>
+      </label>
 
       <div className="dev-row">
         <button className="btn" onClick={handleExport}>

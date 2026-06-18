@@ -28,7 +28,29 @@ export type GameState = {
   selectedCardId?: string;
   inspectedTileId?: string;
   message: string;
+  /** Dev: when true, the random ritual may also transform existing edge tiles. */
+  allowTransforms: boolean;
 };
+
+const SETTINGS_KEY = "project-orbis:settings:v1";
+
+function loadAllowTransforms(): boolean {
+  try {
+    const raw = localStorage.getItem(SETTINGS_KEY);
+    if (!raw) return true; // default on
+    return JSON.parse(raw).allowTransforms !== false;
+  } catch {
+    return true;
+  }
+}
+
+function saveAllowTransforms(value: boolean): void {
+  try {
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify({ allowTransforms: value }));
+  } catch {
+    // ignore
+  }
+}
 
 type Listener = () => void;
 
@@ -50,12 +72,24 @@ export class GameStore {
       world,
       phase: "idle",
       hand: [],
+      allowTransforms: loadAllowTransforms(),
       message: loaded
         ? "Loaded saved world. Press Start Day to continue."
         : "New world created. Press Start Day to grow it.",
     };
     if (!loaded) saveWorld(world);
   }
+
+  /** Dev toggle: allow the random ritual to transform existing edge tiles. */
+  setAllowTransforms = (value: boolean): void => {
+    saveAllowTransforms(value);
+    this.set({
+      allowTransforms: value,
+      message: value
+        ? "Random days may now transform existing edge tiles."
+        : "Random days will only grow empty frontier tiles.",
+    });
+  };
 
   getState = (): GameState => this.state;
 
@@ -76,7 +110,9 @@ export class GameStore {
   /** Random daily ritual: pick a lively/eligible tile and deal its hand. */
   startDay = (): void => {
     if (this.state.phase === "choosing") return;
-    const tile = assignFrontierTile(this.state.world);
+    const tile = assignFrontierTile(this.state.world, {
+      allowTransforms: this.state.allowTransforms,
+    });
     if (!tile) {
       this.set({ message: "No assignable tiles available. Reset or edit the world." });
       return;

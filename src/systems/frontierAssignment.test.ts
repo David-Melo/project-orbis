@@ -89,6 +89,16 @@ describe("AssignmentSystem", () => {
     expect(sawEmpty).toBe(true);
     expect(sawExisting).toBe(true); // transforms now happen in the random ritual
   });
+
+  it("allowTransforms:false makes the ritual assign ONLY empty frontier tiles", () => {
+    const w = generateWorld(1);
+    for (let i = 0; i < 80; i++) {
+      w.rngState = (w.rngState * 1664525 + 1013904223) >>> 0;
+      const t = assignFrontierTile(w, { allowTransforms: false });
+      if (!t) break;
+      expect(t.terrain.kind).toBe("empty");
+    }
+  });
 });
 
 /** A plain fully ringed by plains (no empty/ocean neighbor) — a buried interior tile. */
