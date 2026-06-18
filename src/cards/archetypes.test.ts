@@ -350,6 +350,14 @@ describe("ice (cold gating)", () => {
   it("ice CALVES at the open-water margin even in the cold, bounding the polar cap", () => {
     expect(canGen("melt_ice", makeContext(["ocean"], { targetTerrain: "ice", averageTemperature: 2 }))).toBe(true);
   });
+
+  it("SEA ice melts back to ocean; only INLAND ice melts to fresh water", () => {
+    // Salt sea ice (touching ocean) returns to the sea, not a freshwater pool.
+    expect(resultTerrain("melt_ice", makeContext(["ocean"], { targetTerrain: "ice", averageTemperature: 4 }))).toBe("ocean");
+    // Inland ice with no ocean nearby melts to lake (low) / wetland (higher).
+    expect(resultTerrain("melt_ice", makeContext(["plain"], { targetTerrain: "ice", averageElevation: 2, averageTemperature: 4 }))).toBe("lake");
+    expect(resultTerrain("melt_ice", makeContext(["plain"], { targetTerrain: "ice", averageElevation: 5, averageTemperature: 4 }))).toBe("wetland");
+  });
 });
 
 describe("rivers, lakes, springs", () => {

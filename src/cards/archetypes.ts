@@ -551,7 +551,10 @@ const PRIMARY_ARCHETYPES: CardArchetype[] = [
   },
 
   // 9. Melt Ice — an existing ice tile thaws at the warm margin (temp >= 4) or
-  //    next to lava/volcano. Low ground becomes a lake, higher ground a wetland.
+  //    next to lava/volcano, and SEA ICE calves at the open-water edge even in
+  //    the cold. What it melts INTO follows what the ice was floating on: sea
+  //    ice (touching ocean) returns to ocean; inland ice becomes fresh water
+  //    (lake/wetland); a glacier thaws back to bare rock (hill/mountain).
   {
     id: "melt_ice",
     name: "Melt Ice",
@@ -567,18 +570,21 @@ const PRIMARY_ARCHETYPES: CardArchetype[] = [
       );
     },
     build: (ctx, _w, rng) => {
-      // A glacier sits on high ground, so it thaws back to bare rock (hill /
-      // mountain); sea/lake ice melts to open fresh water (lake / wetland).
-      const kind: TerrainKind =
-        ctx.targetTerrain === "glacier"
-          ? ctx.averageElevation >= 7
-            ? "mountain"
-            : "hill"
-          : ctx.averageElevation <= 3
-            ? "lake"
-            : "wetland";
+      let kind: TerrainKind;
+      let title: string;
+      if (ctx.targetTerrain === "glacier") {
+        kind = ctx.averageElevation >= 7 ? "mountain" : "hill";
+        title = "Melt Glacier";
+      } else if (ctx.touchesOcean) {
+        // Salt sea ice melts back into the sea, not a freshwater pool.
+        kind = "ocean";
+        title = "Melt Sea Ice";
+      } else {
+        kind = ctx.averageElevation <= 3 ? "lake" : "wetland";
+        title = "Melt Ice";
+      }
       return {
-        title: ctx.targetTerrain === "glacier" ? "Melt Glacier" : "Melt Ice",
+        title,
         requirements: [{ type: "targetTerrainIn", terrains: ["ice", "glacier"] }],
         effects: [
           { type: "setTerrain", terrain: kind },
