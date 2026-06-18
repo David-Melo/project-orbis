@@ -11,7 +11,7 @@ describe("GameStore — the core loop", () => {
     expect(s.world.currentDay).toBe(0);
   });
 
-  it("Start Day assigns an empty frontier tile and deals a hand", () => {
+  it("Start Day assigns a tile and deals a hand", () => {
     const store = new GameStore();
     store.startDay();
     const s = store.getState();
@@ -21,7 +21,9 @@ describe("GameStore — the core loop", () => {
     expect(s.world.currentDay).toBe(1);
     const assigned = s.world.tiles.find((t) => t.id === s.world.assignedTileId)!;
     expect(assigned).toBeDefined();
-    expect(s.context!.targetTerrain).toBe("empty"); // growth-only
+    // Usually an empty frontier tile (growth), occasionally an existing edge
+    // tile (transform) — either way the context targets the assigned tile.
+    expect(s.context!.targetTileId).toBe(assigned.id);
     // A card is pre-selected so a second Space is an instant random move.
     expect(s.selectedCardId).toBeDefined();
     expect(s.hand.some((c) => c.id === s.selectedCardId)).toBe(true);

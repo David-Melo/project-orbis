@@ -236,16 +236,20 @@ describe("ice (cold gating)", () => {
     expect(canGen("freeze", makeContext(["coast"], { averageTemperature: 7 }))).toBe(false);
   });
 
-  it("freeze works in genuine cold or beside existing ice", () => {
-    expect(canGen("freeze", makeContext(["coast"], { averageTemperature: 2 }))).toBe(true);
-    expect(canGen("freeze", makeContext(["ice"], { averageTemperature: 3 }))).toBe(true);
-    expect(resultTerrain("freeze", makeContext(["ocean"], { targetTerrain: "ocean", averageTemperature: 2 }))).toBe("ice");
+  it("only cold WATER freezes (sea ice); empty/dry ground never freezes, so ice can't march over land", () => {
+    expect(canGen("freeze", makeContext(["plain"], { targetTerrain: "lake", averageTemperature: 3 }))).toBe(true);
+    expect(canGen("freeze", makeContext(["plain"], { targetTerrain: "lake", averageTemperature: 4 }))).toBe(false);
+    expect(resultTerrain("freeze", makeContext(["plain"], { targetTerrain: "ocean", averageTemperature: 2 }))).toBe("ice");
+    // An empty tile never freezes, even at the cold pole next to ice.
+    expect(canGen("freeze", makeContext(["ice"], { targetTerrain: "empty", averageTemperature: 1 }))).toBe(false);
   });
 
-  it("melt_ice only acts on existing ice when warm enough", () => {
+  it("melt_ice thaws ice at the warm margin (temp>=4) OR next to lava/volcano — so ice is two-directional", () => {
     expect(ARCHETYPES_BY_ID.melt_ice.targets).toEqual(["ice"]);
-    expect(canGen("melt_ice", makeContext(["plain"], { targetTerrain: "ice", averageTemperature: 6 }))).toBe(true);
+    expect(canGen("melt_ice", makeContext(["plain"], { targetTerrain: "ice", averageTemperature: 4 }))).toBe(true);
     expect(canGen("melt_ice", makeContext(["plain"], { targetTerrain: "ice", averageTemperature: 2 }))).toBe(false);
+    // Even in the cold, lava/volcano melts adjacent ice.
+    expect(canGen("melt_ice", makeContext(["lava"], { targetTerrain: "ice", averageTemperature: 2 }))).toBe(true);
   });
 });
 

@@ -26,6 +26,7 @@ export type Effect =
   | { type: "addTrait"; trait: string }
   | { type: "removeTrait"; trait: string }
   | { type: "spreadMoisture"; amount: number; radius: number }
+  | { type: "flowDownhill" }
   | { type: "createEvent"; title: string; description: string };
 
 export function describeEffect(effect: Effect): string {
@@ -50,6 +51,8 @@ export function describeEffect(effect: Effect): string {
       return `Lose trait “${effect.trait}”`;
     case "spreadMoisture":
       return `Moisture ${signed(effect.amount)} within r${effect.radius}`;
+    case "flowDownhill":
+      return "Flows downhill to the lowest neighbor";
     case "createEvent":
       return effect.title;
   }

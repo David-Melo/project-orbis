@@ -40,7 +40,6 @@ export type ArchetypeResult = {
 };
 
 const RIVER_SOURCE: TerrainKind[] = ["hill", "mountain", "volcano", "river", "lake", "wetland", "ice"];
-const FREEZABLE_TOUCH: TerrainKind[] = ["ocean", "coast", "lake", "river", "wetland", "ice", "mountain"];
 const WATER_KINDS: TerrainKind[] = ["ocean", "coast", "lake", "river", "wetland"];
 
 const clamp = (v: number, lo = 0, hi = 10) => Math.max(lo, Math.min(hi, Math.round(v)));
@@ -495,25 +494,22 @@ const PRIMARY_ARCHETYPES: CardArchetype[] = [
     }),
   },
 
-  // 8. Freeze — genuine cold turns an empty tile OR open water into ice.
+  // 8. Freeze — cold polar WATER freezes over into ice (sea ice, frozen lakes).
+  //    Ice is only ever frozen water, so it forms polar caps along cold coasts
+  //    and seas instead of marching across the land. Melt (>=4) thaws the margin.
   {
     id: "freeze",
     name: "Freeze",
     age: "primordial",
-    targets: ["empty", "ocean", "coast", "lake", "river", "wetland"],
+    targets: ["ocean", "coast", "lake", "river", "wetland"],
     canGenerate(ctx) {
-      if (!targetOk(this, ctx)) return false;
-      const cold = ctx.touchesIce || ctx.averageTemperature <= 3;
-      const freezable =
-        WATER_KINDS.includes(ctx.targetTerrain) ||
-        ctx.adjacentTerrains.some((t) => FREEZABLE_TOUCH.includes(t));
-      return cold && freezable;
+      return targetOk(this, ctx) && ctx.averageTemperature <= 3;
     },
     build: (ctx, _w, rng) => ({
-      title: WATER_KINDS.includes(ctx.targetTerrain) ? "Freeze Over" : "Freeze",
+      title: "Freeze Over",
       requirements: [
-        { type: "targetTerrainIn", terrains: ["empty", "ocean", "coast", "lake", "river", "wetland"] },
-        { type: "maxTemperature", value: 4 },
+        { type: "targetTerrainIn", terrains: ["ocean", "coast", "lake", "river", "wetland"] },
+        { type: "maxTemperature", value: 3 },
       ],
       effects: [
         { type: "setTerrain", terrain: "ice" },
@@ -529,15 +525,18 @@ const PRIMARY_ARCHETYPES: CardArchetype[] = [
     }),
   },
 
-  // 9. Melt Ice — an existing ice tile in warm air returns to water. Low ground
-  //    becomes a lake, higher ground a wetland.
+  // 9. Melt Ice — an existing ice tile thaws at the warm margin (temp >= 4) or
+  //    next to lava/volcano. Low ground becomes a lake, higher ground a wetland.
   {
     id: "melt_ice",
     name: "Melt Ice",
     age: "primordial",
     targets: ["ice"],
     canGenerate(ctx) {
-      return targetOk(this, ctx) && ctx.averageTemperature >= 4;
+      return (
+        targetOk(this, ctx) &&
+        (ctx.averageTemperature >= 4 || ctx.touchesLava || ctx.touchesVolcano)
+      );
     },
     build: (ctx, _w, rng) => {
       const low = ctx.averageElevation <= 3;
@@ -589,6 +588,7 @@ const PRIMARY_ARCHETYPES: CardArchetype[] = [
         { type: "setTerrain", terrain: "plain" },
         { type: "setElevation", value: clamp(Math.max(ctx.averageElevation, 3), 3, 5) },
         { type: "adjustMoisture", amount: 6 },
+        { type: "spreadMoisture", amount: 2, radius: 1 },
         { type: "adjustFertility", amount: 3 },
         { type: "addTrait", trait: "fertile" },
       ],
@@ -623,7 +623,8 @@ const PRIMARY_ARCHETYPES: CardArchetype[] = [
       effects: [
         { type: "setTerrain", terrain: "river" },
         { type: "setElevation", value: elevationFor("river", ctx.averageElevation) },
-        { type: "spreadMoisture", amount: 3, radius: 1 },
+        { type: "flowDownhill" },
+        { type: "spreadMoisture", amount: 3, radius: 2 },
         { type: "addTrait", trait: "freshwater" },
       ],
       flavor: pickFlavor(rng, [
@@ -669,6 +670,7 @@ const PRIMARY_ARCHETYPES: CardArchetype[] = [
         { type: "setTerrain", terrain: "lake" },
         { type: "setElevation", value: elevationFor("lake", ctx.averageElevation) },
         { type: "adjustMoisture", amount: 5 },
+        { type: "spreadMoisture", amount: 3, radius: 2 },
         { type: "adjustFertility", amount: 1 },
         { type: "addTrait", trait: "freshwater" },
       ],

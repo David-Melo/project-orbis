@@ -51,4 +51,38 @@ describe("EffectApplicationSystem", () => {
     applyEffects(w, t, [{ type: "addConnection", direction: "n", connection: { kind: "river" } }]);
     expect(t.connections.n).toEqual([{ kind: "river" }]);
   });
+
+  it("spreadMoisture falls off with distance (more adjacent than two tiles out)", () => {
+    const w = emptyWorld(9);
+    const src = setTile(w, 4, 4, "river", 3, 5)!;
+    applyEffects(w, src, [{ type: "spreadMoisture", amount: 4, radius: 2 }]);
+    const near = w.tiles.find((t) => t.position.x === 5 && t.position.y === 4)!; // dist 1
+    const far = w.tiles.find((t) => t.position.x === 6 && t.position.y === 4)!; // dist 2
+    expect(near.moisture.value).toBeGreaterThan(far.moisture.value);
+    expect(far.moisture.value).toBeGreaterThan(0);
+  });
+
+  it("flowDownhill records a river connection + trait toward the lowest neighbor", () => {
+    const w = emptyWorld();
+    const river = setTile(w, 3, 3, "river", 4)!;
+    setTile(w, 3, 2, "plain", 6); // N higher
+    setTile(w, 3, 4, "plain", 2); // S lower  <- flow target
+    setTile(w, 2, 3, "plain", 5);
+    setTile(w, 4, 3, "plain", 5);
+    applyEffects(w, river, [{ type: "flowDownhill" }]);
+    expect(river.connections.s).toEqual([{ kind: "river" }]);
+    expect(river.traits.traits).toContain("flows-s");
+  });
+
+  it("flowDownhill does nothing when no neighbor is lower (a local pit)", () => {
+    const w = emptyWorld();
+    const river = setTile(w, 3, 3, "river", 1)!;
+    // All four orthogonal neighbors stand higher than the river.
+    setTile(w, 3, 2, "plain", 5);
+    setTile(w, 3, 4, "plain", 5);
+    setTile(w, 2, 3, "plain", 5);
+    setTile(w, 4, 3, "plain", 5);
+    applyEffects(w, river, [{ type: "flowDownhill" }]);
+    expect(river.traits.traits.some((t) => t.startsWith("flows-"))).toBe(false);
+  });
 });
