@@ -41,7 +41,7 @@ export function MapView() {
               className={className}
               style={{ background: TERRAIN_COLOR[tile.terrain.kind] }}
               title={`(${tile.position.x}, ${tile.position.y}) ${TERRAIN_LABEL[tile.terrain.kind]}`}
-              onClick={() => store.inspectTile(tile.id)}
+              onClick={() => store.handleTileClick(tile.id)}
             >
               <span className="tile__glyph">{TERRAIN_GLYPH[tile.terrain.kind]}</span>
             </button>

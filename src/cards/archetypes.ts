@@ -9,20 +9,25 @@ import type { WorldState } from "../engine/world";
  *  - canGenerate: would this card make sense on the assigned tile?
  *  - build:       produce the concrete title/requirements/effects/flavor.
  *
- * Cards are GROWN from the map. Every archetype's canGenerate reads only the
- * TileContext, so the same neighborhood always offers the same possibilities.
+ * Cards are GROWN from the map. Every archetype reads the TileContext, so the
+ * same neighborhood always offers the same possibilities.
  *
- * Two design rules drive this primordial set:
- *  1. Terrain transitions respect neighbors — the ocean meets land only
- *     through a coast; rivers need a source; ice needs cold.
- *  2. Elevation is continuous — a new tile's height is derived from the
- *     average height of its existing neighbors, stepped per terrain, never an
- *     arbitrary jump. See elevationFor().
+ * Three design rules drive this primordial set:
+ *  1. Terrain transitions respect neighbors — ocean meets land through coast,
+ *     rivers need a source, ice needs cold, lakes need a basin or fresh water.
+ *  2. Elevation is continuous — a new tile's height derives from its neighbors,
+ *     stepped per terrain, never an arbitrary jump (see elevationFor).
+ *  3. The world is REVERSIBLE — cards may transform existing edge tiles, not
+ *     just empty frontier, so shores erode, heights wear down, basins flood,
+ *     and water freezes/melts in place. The constraint is physical, not
+ *     "build-only".
  */
 export type CardArchetype = {
   id: string;
   name: string;
   age: WorldAge;
+  /** Terrains this card may be played ON (the target tile's current terrain). */
+  targets: TerrainKind[];
   canGenerate: (ctx: TileContext, world: WorldState) => boolean;
   build: (ctx: TileContext, world: WorldState, rng: Rng) => ArchetypeResult;
 };
@@ -38,15 +43,16 @@ const LAND_TOUCH: TerrainKind[] = ["coast", "plain", "hill", "mountain", "volcan
 const WATER_TOUCH: TerrainKind[] = ["ocean", "coast", "lake", "river", "wetland"];
 const RIVER_SOURCE: TerrainKind[] = ["hill", "mountain", "volcano", "river", "lake", "wetland", "ice"];
 const FREEZABLE_TOUCH: TerrainKind[] = ["ocean", "coast", "lake", "river", "wetland", "ice", "mountain"];
+const WATER_KINDS: TerrainKind[] = ["ocean", "coast", "lake", "river", "wetland"];
 
 const clamp = (v: number, lo = 0, hi = 10) => Math.max(lo, Math.min(hi, Math.round(v)));
 
+/** Does the target tile's current terrain allow this archetype? */
+const targetOk = (a: CardArchetype, ctx: TileContext) => a.targets.includes(ctx.targetTerrain);
+
 /**
  * Derive a continuous elevation for a new tile of `kind` from the average
- * height of its existing neighbors (`base`). Each terrain steps relative to
- * that base and is clamped to a believable band, so heights flow smoothly:
- * a plain rises one step above the land behind it, a coast settles near sea
- * level, a volcano towers, a river cuts slightly below its surroundings.
+ * height of its existing neighbors (`base`), stepped and clamped per terrain.
  */
 function elevationFor(kind: TerrainKind, base: number): number {
   switch (kind) {
@@ -80,21 +86,23 @@ function elevationFor(kind: TerrainKind, base: number): number {
 const pickFlavor = (rng: Rng, options: string[]): string => rng.pick(options);
 
 export const ARCHETYPES: CardArchetype[] = [
-  // 1. Raise Land — INLAND growth only. Touches land but NOT open ocean, so
-  //    you can never get a plain directly against the sea (coast must come
-  //    first). Rises one step above the surrounding land.
+  // 1. Raise Land — inland growth (or lifting a coast back into dry land).
+  //    Touches land, NOT open ocean, so a plain never forms directly on the sea.
   {
     id: "raise_land",
     name: "Raise Land",
     age: "primordial",
-    canGenerate: (ctx) => ctx.touchesLand && !ctx.touchesOcean,
+    targets: ["empty", "coast"],
+    canGenerate(ctx) {
+      return targetOk(this, ctx) && ctx.touchesLand && !ctx.touchesOcean;
+    },
     build: (ctx, _w, rng) => {
       const becomesHill = ctx.averageElevation >= 5;
       const kind: TerrainKind = becomesHill ? "hill" : "plain";
       return {
         title: becomesHill ? "Raise Hill" : "Raise Land",
         requirements: [
-          { type: "targetIsEmpty" },
+          { type: "targetTerrainIn", terrains: ["empty", "coast"] },
           { type: "touchesAnyTerrain", terrains: LAND_TOUCH },
         ],
         effects: [
@@ -111,17 +119,19 @@ export const ARCHETYPES: CardArchetype[] = [
     },
   },
 
-  // 2. Form Coast — the ONLY way an ocean-adjacent empty tile becomes solid.
-  //    Resolves the land/water boundary into a shoreline near sea level.
+  // 2. Form Coast — the way an ocean-adjacent empty tile becomes solid shore.
   {
     id: "form_coast",
     name: "Form Coast",
     age: "primordial",
-    canGenerate: (ctx) => ctx.touchesOcean,
+    targets: ["empty"],
+    canGenerate(ctx) {
+      return targetOk(this, ctx) && ctx.touchesOcean;
+    },
     build: (ctx, _w, rng) => ({
       title: "Form Coast",
       requirements: [
-        { type: "targetIsEmpty" },
+        { type: "targetTerrainIn", terrains: ["empty"] },
         { type: "touchesTerrain", terrain: "ocean" },
       ],
       effects: [
@@ -137,16 +147,20 @@ export const ARCHETYPES: CardArchetype[] = [
     }),
   },
 
-  // 3. Spread Ocean — lets the sea grow into low, ocean-adjacent frontier.
+  // 3. Spread Ocean — the sea grows into low, ocean-adjacent frontier, and can
+  //    ERODE a coast or wetland back into open water.
   {
     id: "spread_ocean",
     name: "Spread Ocean",
     age: "primordial",
-    canGenerate: (ctx) => ctx.touchesOcean && ctx.averageElevation <= 3,
-    build: (_ctx, _w, rng) => ({
-      title: "Spread Ocean",
+    targets: ["empty", "coast", "wetland"],
+    canGenerate(ctx) {
+      return targetOk(this, ctx) && ctx.touchesOcean && ctx.averageElevation <= 3;
+    },
+    build: (ctx, _w, rng) => ({
+      title: ctx.targetTerrain === "empty" ? "Spread Ocean" : "Erode Shore",
       requirements: [
-        { type: "targetIsEmpty" },
+        { type: "targetTerrainIn", terrains: ["empty", "coast", "wetland"] },
         { type: "touchesTerrain", terrain: "ocean" },
         { type: "maxElevation", value: 4 },
       ],
@@ -157,26 +171,30 @@ export const ARCHETYPES: CardArchetype[] = [
       ],
       flavor: pickFlavor(rng, [
         "The sea reaches out and claims a little more of the low ground.",
-        "Open water deepens and widens.",
+        "Waves gnaw the shore away until only water remains.",
         "The ocean remembers it was here first.",
       ]),
     }),
   },
 
-  // 4. Sink Land — low ground beside water subsides into marshy WETLAND (not
-  //    open ocean; growing the sea is Spread Ocean's job). This is the only
-  //    way to get marsh next to salt water, and it reads distinctly: reeds and
-  //    mud rather than open water.
+  // 4. Sink Land — low ground beside water subsides into marshy WETLAND. Works
+  //    on empty frontier OR an existing plain/coast/hill (subsidence).
   {
     id: "sink_land",
     name: "Sink Land",
     age: "primordial",
-    canGenerate: (ctx) =>
-      (ctx.touchesOcean || ctx.touchesFreshWater) && ctx.averageElevation <= 4,
+    targets: ["empty", "plain", "coast", "hill"],
+    canGenerate(ctx) {
+      return (
+        targetOk(this, ctx) &&
+        (ctx.touchesOcean || ctx.touchesFreshWater) &&
+        ctx.averageElevation <= 4
+      );
+    },
     build: (ctx, _w, rng) => ({
-      title: "Sink Land",
+      title: ctx.targetTerrain === "empty" ? "Sink Land" : "Subside to Marsh",
       requirements: [
-        { type: "targetIsEmpty" },
+        { type: "targetTerrainIn", terrains: ["empty", "plain", "coast", "hill"] },
         { type: "touchesAnyTerrain", terrains: WATER_TOUCH },
       ],
       effects: [
@@ -193,16 +211,20 @@ export const ARCHETYPES: CardArchetype[] = [
     }),
   },
 
-  // 5. Erupt Volcano — a frontier tile near land/lava erupts into a towering
-  //    peak. A future source for rivers and lava.
+  // 5. Erupt Volcano — a frontier tile, or existing land, erupts into a peak.
   {
     id: "erupt_volcano",
     name: "Erupt Volcano",
     age: "primordial",
-    canGenerate: (ctx) => ctx.touchesLand || ctx.touchesLava || ctx.touchesVolcano,
+    targets: ["empty", "plain", "hill", "mountain", "coast", "basalt"],
+    canGenerate(ctx) {
+      return targetOk(this, ctx) && (ctx.touchesLand || ctx.touchesLava || ctx.touchesVolcano);
+    },
     build: (ctx, _w, rng) => ({
       title: "Erupt Volcano",
-      requirements: [{ type: "targetIsEmpty" }],
+      requirements: [
+        { type: "targetTerrainIn", terrains: ["empty", "plain", "hill", "mountain", "coast", "basalt"] },
+      ],
       effects: [
         { type: "setTerrain", terrain: "volcano" },
         { type: "setElevation", value: elevationFor("volcano", ctx.averageElevation) },
@@ -218,17 +240,19 @@ export const ARCHETYPES: CardArchetype[] = [
     }),
   },
 
-  // 6. Spread Lava — lava/volcano spills onto an adjacent tile, flowing at a
-  //    similar height to its source.
+  // 6. Spread Lava — lava/volcano spills onto an adjacent tile.
   {
     id: "spread_lava",
     name: "Spread Lava",
     age: "primordial",
-    canGenerate: (ctx) => ctx.touchesLava || ctx.touchesVolcano,
+    targets: ["empty", "plain", "basalt", "coast"],
+    canGenerate(ctx) {
+      return targetOk(this, ctx) && (ctx.touchesLava || ctx.touchesVolcano);
+    },
     build: (ctx, _w, rng) => ({
       title: "Spread Lava",
       requirements: [
-        { type: "targetIsEmpty" },
+        { type: "targetTerrainIn", terrains: ["empty", "plain", "basalt", "coast"] },
         { type: "touchesAnyTerrain", terrains: ["lava", "volcano"] },
       ],
       effects: [
@@ -247,17 +271,21 @@ export const ARCHETYPES: CardArchetype[] = [
   },
 
   // 7. Cool Lava — lava beside water/ice (or in cool air) hardens to basalt.
+  //    Can act on an empty tile beside lava OR on a lava tile cooling in place.
   {
     id: "cool_lava",
     name: "Cool Lava",
     age: "primordial",
-    canGenerate: (ctx) =>
-      ctx.touchesLava && (ctx.touchesWater || ctx.touchesIce || ctx.averageTemperature <= 6),
+    targets: ["empty", "lava"],
+    canGenerate(ctx) {
+      if (!targetOk(this, ctx)) return false;
+      const nearLava = ctx.targetTerrain === "lava" || ctx.touchesLava;
+      return nearLava && (ctx.touchesWater || ctx.touchesIce || ctx.averageTemperature <= 6);
+    },
     build: (ctx, _w, rng) => ({
       title: ctx.touchesWater ? "Quench Lava" : "Cool Lava",
       requirements: [
-        { type: "targetIsEmpty" },
-        { type: "touchesTerrain", terrain: "lava" },
+        { type: "targetTerrainIn", terrains: ["empty", "lava"] },
       ],
       effects: [
         { type: "setTerrain", terrain: "basalt" },
@@ -274,21 +302,25 @@ export const ARCHETYPES: CardArchetype[] = [
     }),
   },
 
-  // 8. Freeze — needs GENUINE cold: already-icy neighbors or a cold latitude,
-  //    plus something freezable adjacent. No more freezing temperate frontier.
+  // 8. Freeze — genuine cold turns an empty tile OR open water into ice.
   {
     id: "freeze",
     name: "Freeze",
     age: "primordial",
-    canGenerate: (ctx) =>
-      (ctx.touchesIce || ctx.averageTemperature <= 3) &&
-      ctx.adjacentTerrains.some((t) => FREEZABLE_TOUCH.includes(t)),
+    targets: ["empty", "ocean", "coast", "lake", "river", "wetland"],
+    canGenerate(ctx) {
+      if (!targetOk(this, ctx)) return false;
+      const cold = ctx.touchesIce || ctx.averageTemperature <= 3;
+      const freezable =
+        WATER_KINDS.includes(ctx.targetTerrain) ||
+        ctx.adjacentTerrains.some((t) => FREEZABLE_TOUCH.includes(t));
+      return cold && freezable;
+    },
     build: (ctx, _w, rng) => ({
-      title: "Freeze",
+      title: WATER_KINDS.includes(ctx.targetTerrain) ? "Freeze Over" : "Freeze",
       requirements: [
-        { type: "targetIsEmpty" },
+        { type: "targetTerrainIn", terrains: ["empty", "ocean", "coast", "lake", "river", "wetland"] },
         { type: "maxTemperature", value: 4 },
-        { type: "touchesAnyTerrain", terrains: FREEZABLE_TOUCH },
       ],
       effects: [
         { type: "setTerrain", terrain: "ice" },
@@ -304,22 +336,22 @@ export const ARCHETYPES: CardArchetype[] = [
     }),
   },
 
-  // 9. Melt Ice — ice in a warm-enough neighborhood returns to water. Low
-  //    ground becomes a lake, higher ground a wetland.
+  // 9. Melt Ice — an existing ice tile in warm air returns to water. Low ground
+  //    becomes a lake, higher ground a wetland.
   {
     id: "melt_ice",
     name: "Melt Ice",
     age: "primordial",
-    canGenerate: (ctx) => ctx.touchesIce && ctx.averageTemperature >= 4,
+    targets: ["ice"],
+    canGenerate(ctx) {
+      return targetOk(this, ctx) && ctx.averageTemperature >= 4;
+    },
     build: (ctx, _w, rng) => {
       const low = ctx.averageElevation <= 3;
       const kind: TerrainKind = low ? "lake" : "wetland";
       return {
         title: "Melt Ice",
-        requirements: [
-          { type: "targetIsEmpty" },
-          { type: "touchesTerrain", terrain: "ice" },
-        ],
+        requirements: [{ type: "targetTerrainIn", terrains: ["ice"] }],
         effects: [
           { type: "setTerrain", terrain: kind },
           { type: "setElevation", value: elevationFor(kind, ctx.averageElevation) },
@@ -335,19 +367,24 @@ export const ARCHETYPES: CardArchetype[] = [
     },
   },
 
-  // 10. Carve River — needs a SOURCE: adjacent high ground (a spring) or
-  //     existing fresh water/ice to extend. Never spawns from the salt ocean.
-  //     Cuts slightly below the surrounding land.
+  // 10. Carve River — needs a SOURCE (high ground spring or existing fresh
+  //     water/ice). Can cut through empty frontier OR existing plain/wetland.
   {
     id: "carve_river",
     name: "Carve River",
     age: "primordial",
-    canGenerate: (ctx) =>
-      !ctx.touchesLava && (ctx.touchesHighGround || ctx.touchesFreshWater || ctx.touchesIce),
+    targets: ["empty", "plain", "wetland", "basalt"],
+    canGenerate(ctx) {
+      return (
+        targetOk(this, ctx) &&
+        !ctx.touchesLava &&
+        (ctx.touchesHighGround || ctx.touchesFreshWater || ctx.touchesIce)
+      );
+    },
     build: (ctx, _w, rng) => ({
       title: "Carve River",
       requirements: [
-        { type: "targetIsEmpty" },
+        { type: "targetTerrainIn", terrains: ["empty", "plain", "wetland", "basalt"] },
         { type: "touchesAnyTerrain", terrains: RIVER_SOURCE },
       ],
       effects: [
@@ -364,20 +401,26 @@ export const ARCHETYPES: CardArchetype[] = [
     }),
   },
 
-  // 11. Form Lake — fresh water pools in a genuine LOW basin fed by a river,
-  //     wetland or meltwater.
+  // 11. Form Lake — fresh water pools in a genuine low BASIN. Fed by a river /
+  //     wetland / meltwater, OR simply collected in a hollow ringed by land —
+  //     so you can branch a brand-new lake into shaped continent.
   {
     id: "form_lake",
     name: "Form Lake",
     age: "primordial",
-    canGenerate: (ctx) =>
-      ctx.averageElevation <= 3 && (ctx.touchesFreshWater || ctx.touchesIce),
+    targets: ["empty", "plain", "wetland", "basalt"],
+    canGenerate(ctx) {
+      return (
+        targetOk(this, ctx) &&
+        ctx.averageElevation <= 5 &&
+        (ctx.touchesFreshWater || ctx.touchesIce || ctx.isBasin)
+      );
+    },
     build: (ctx, _w, rng) => ({
-      title: "Form Lake",
+      title: ctx.isBasin && !ctx.touchesFreshWater ? "Flood Basin" : "Form Lake",
       requirements: [
-        { type: "targetIsEmpty" },
-        { type: "maxElevation", value: 3 },
-        { type: "touchesAnyTerrain", terrains: ["river", "lake", "wetland", "ice"] },
+        { type: "targetTerrainIn", terrains: ["empty", "plain", "wetland", "basalt"] },
+        { type: "maxElevation", value: 6 },
       ],
       effects: [
         { type: "setTerrain", terrain: "lake" },
@@ -392,6 +435,36 @@ export const ARCHETYPES: CardArchetype[] = [
         "Where water rests, life will one day follow.",
       ]),
     }),
+  },
+
+  // 12. Wear Down — erosion lowers heights one step: volcano→mountain,
+  //     mountain→hill, hill→plain. The world is allowed to come back down.
+  {
+    id: "wear_down",
+    name: "Wear Down",
+    age: "primordial",
+    targets: ["hill", "mountain", "volcano"],
+    canGenerate(ctx) {
+      return targetOk(this, ctx);
+    },
+    build: (ctx, _w, rng) => {
+      const out: TerrainKind =
+        ctx.targetTerrain === "volcano" ? "mountain" : ctx.targetTerrain === "mountain" ? "hill" : "plain";
+      return {
+        title: ctx.targetTerrain === "volcano" ? "Volcano Goes Dormant" : "Wear Down",
+        requirements: [{ type: "targetTerrainIn", terrains: ["hill", "mountain", "volcano"] }],
+        effects: [
+          { type: "setTerrain", terrain: out },
+          { type: "setElevation", value: clamp(ctx.targetElevation - 2) },
+          { type: "adjustFertility", amount: 1 },
+        ],
+        flavor: pickFlavor(rng, [
+          "Wind and water grind the height down, grain by grain.",
+          "The peak slumps, tired after an age of standing.",
+          "Time files the mountain toward the plain.",
+        ]),
+      };
+    },
   },
 ];
 

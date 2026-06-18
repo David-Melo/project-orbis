@@ -35,11 +35,24 @@ export function analyzeContext(world: WorldState, tile: TileEntity): TileContext
     adjacentTerrains.some((k) => set.has(k));
 
   const landNeighbors = nearby.filter((t) => t.terrain.kind !== "empty" && t.terrain.kind !== "void");
+  const avgElevation = average(landNeighbors.map((t) => t.elevation.value));
+
+  // A basin is a low spot ringed by land that could collect water: mostly
+  // surrounded by land of low-to-moderate height, and (for existing tiles) not
+  // standing higher than its surroundings.
+  const isBasin =
+    landNeighbors.length >= 3 &&
+    avgElevation >= 2 &&
+    avgElevation <= 6 &&
+    (tile.terrain.kind === "empty" || tile.elevation.value <= avgElevation);
 
   return {
     targetTileId: tile.id,
     targetX: tile.position.x,
     targetY: tile.position.y,
+    targetTerrain: tile.terrain.kind,
+    targetElevation: tile.elevation.value,
+    isBasin,
     adjacentTerrains,
     nearbyTerrains,
     touchesWater: touchesSet(WATER_TERRAINS),
@@ -54,7 +67,7 @@ export function analyzeContext(world: WorldState, tile: TileEntity): TileContext
     touchesFreshWater: touchesSet(FRESH_WATER_TERRAINS),
     touchesHighGround: touchesSet(HIGH_GROUND_TERRAINS),
     landNeighborCount: landNeighbors.length,
-    averageElevation: average(landNeighbors.map((t) => t.elevation.value)),
+    averageElevation: avgElevation,
     averageMoisture: average(landNeighbors.map((t) => t.moisture.value)),
     averageTemperature: average(nearby.map((t) => t.temperature.value)),
   };

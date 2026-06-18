@@ -29,6 +29,12 @@ export type TileContext = {
   targetTileId: EntityId;
   targetX: number;
   targetY: number;
+  /** The target tile's CURRENT terrain — cards may now transform existing tiles. */
+  targetTerrain: import("./components").TerrainKind;
+  /** The target tile's current elevation. */
+  targetElevation: number;
+  /** True when the tile is a low spot ringed by land — a basin that can hold water. */
+  isBasin: boolean;
   adjacentTerrains: import("./components").TerrainKind[];
   nearbyTerrains: import("./components").TerrainKind[];
   touchesWater: boolean;

@@ -1,5 +1,6 @@
 import { useGame } from "../state/useGame";
 import { describeEffect } from "../engine/effects";
+import { TERRAIN_LABEL } from "../engine/components";
 import type { GeneratedCard } from "../engine/card";
 
 /**
@@ -18,8 +19,8 @@ export function SessionDock() {
           ▶ Start Day
         </button>
         <span className="dock-hint">
-          press <kbd>Space</kbd> to start · <kbd>1</kbd>–<kbd>3</kbd> pick ·{" "}
-          <kbd>Enter</kbd> confirm · <kbd>Esc</kbd> cancel
+          <kbd>Space</kbd> random tile · click any tile to act on it · <kbd>1</kbd>–
+          <kbd>3</kbd> pick · <kbd>Enter</kbd> confirm · <kbd>Esc</kbd> cancel
         </span>
       </div>
     );
@@ -30,11 +31,12 @@ export function SessionDock() {
       <div className="dock-head">
         {context && (
           <span className="assigned-line">
-            Assigned tile{" "}
+            Assigned{" "}
             <strong>
               ({context.targetX}, {context.targetY})
             </strong>{" "}
-            — choose a future:
+            · currently <strong>{TERRAIN_LABEL[context.targetTerrain]}</strong> — choose a
+            future:
           </span>
         )}
         <div className="dock-actions">

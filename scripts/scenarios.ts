@@ -20,6 +20,7 @@ function ctx(adjacent: TerrainKind[], over: Partial<TileContext> = {}): TileCont
   const land: TerrainKind[] = ["coast", "plain", "hill", "mountain", "volcano", "basalt"];
   return {
     targetTileId: "t", targetX: 0, targetY: 0,
+    targetTerrain: "empty", targetElevation: 0, isBasin: false,
     adjacentTerrains: adjacent, nearbyTerrains: adjacent,
     touchesWater: adjacent.some((k) => water.includes(k)),
     touchesOcean: has("ocean"), touchesRiver: has("river"), touchesLake: has("lake"),
@@ -72,6 +73,28 @@ expect("freeze", ctx(["plain"], { averageTemperature: 7 }), false, "#5 freeze te
 expect("freeze", ctx(["coast"], { averageTemperature: 7 }), false, "#5 freeze temperate coast");
 expect("freeze", ctx(["coast"], { averageTemperature: 2 }), true, "#5 freeze at a cold latitude");
 expect("freeze", ctx(["ice"], { averageTemperature: 3 }), true, "#5 freeze beside existing ice");
+
+// Reversibility (the new capability):
+// Coast can erode back to ocean.
+expect("spread_ocean", ctx(["ocean", "ocean"], { targetTerrain: "coast", targetElevation: 2, averageElevation: 1 }), true, "rev: coast erodes to ocean");
+{
+  const c = ctx(["ocean"], { targetTerrain: "coast", targetElevation: 2, averageElevation: 1 });
+  console.log(`${terrainOf("spread_ocean", c) === "ocean" ? "ok" : "FAIL"}: rev: eroded coast becomes ocean`);
+  if (terrainOf("spread_ocean", c) !== "ocean") failures++;
+}
+// A new lake can be branched into a land basin with no adjacent water.
+expect("form_lake", ctx(["plain", "plain", "plain"], { targetTerrain: "plain", targetElevation: 3, averageElevation: 4, isBasin: true }), true, "rev: lake floods a land basin (no adjacent water)");
+// Heights wear down.
+expect("wear_down", ctx(["mountain"], { targetTerrain: "mountain", targetElevation: 8 }), true, "rev: mountain wears down");
+{
+  const c = ctx(["mountain"], { targetTerrain: "mountain", targetElevation: 8 });
+  console.log(`${terrainOf("wear_down", c) === "hill" ? "ok" : "FAIL"}: rev: worn mountain becomes hill`);
+  if (terrainOf("wear_down", c) !== "hill") failures++;
+}
+// Open water freezes in place when cold.
+expect("freeze", ctx(["ocean"], { targetTerrain: "ocean", averageTemperature: 2 }), true, "rev: cold ocean freezes over");
+// Stable interior is NOT a basin target by accident (high plain ringed by hills).
+expect("form_lake", ctx(["hill", "hill", "hill"], { targetTerrain: "plain", targetElevation: 6, averageElevation: 6, isBasin: false }), false, "rev: high plain is not a lake");
 
 console.log(failures === 0 ? "\nALL SCENARIOS PASS" : `\n${failures} SCENARIO FAILURE(S)`);
 process.exit(failures === 0 ? 0 : 1);

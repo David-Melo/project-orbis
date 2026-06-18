@@ -18,11 +18,18 @@ for the full vision and roadmap.
 - **32×32 grid** seeded with a tiny primordial island.
 - **Deterministic seeded RNG** — same seed + same actions ⇒ same world.
 - **Symbolic rendering** — colored CSS tiles with ASCII glyphs.
-- **The core loop:** Start Day → assign a frontier tile → analyze its
-  neighborhood → generate up to 3 valid cards → preview → confirm → apply
-  effects → record an event → persist.
-- **10 geological card archetypes:** raise land, sink land, form coast, erupt
-  volcano, spread lava, cool lava, freeze, melt ice, carve river, form lake.
+- **The core loop:** Start Day (or click any eligible tile) → assign a tile →
+  analyze its neighborhood → generate up to 3 valid cards → preview → confirm →
+  apply effects → record an event → persist.
+- **12 geological card archetypes:** raise land, form coast, spread ocean, sink
+  land, erupt volcano, spread lava, cool lava, freeze, melt ice, carve river,
+  form lake, wear down.
+- **Reversible world:** cards can transform existing edge tiles, not just empty
+  frontier — shores erode (coast→ocean), heights wear down (mountain→hill),
+  land subsides to marsh, water freezes/melts in place, and new lakes can be
+  flooded into low land basins. The constraint is physical, not build-only.
+- **Continuous elevation:** a new tile's height is derived from its neighbors
+  and stepped per terrain, so slopes and shorelines read coherently.
 - **`localStorage` persistence** plus **JSON export/import**.
 - **Tile inspector** (raw component state + per-tile history) and a
   **chronological history log** (the world's memory).

@@ -1,6 +1,6 @@
 // Headless smoke test of the core loop. Not part of the app build.
 import { generateWorld } from "../src/systems/worldGeneration";
-import { assignFrontierTile, findFrontierTiles } from "../src/systems/frontierAssignment";
+import { assignFrontierTile, findAssignableTiles } from "../src/systems/frontierAssignment";
 import { analyzeContext } from "../src/systems/contextAnalysis";
 import { generateCards } from "../src/systems/cardGeneration";
 import { checkAllRequirements } from "../src/systems/requirementValidation";
@@ -20,7 +20,7 @@ function assert(cond: boolean, msg: string) {
 
 const world = generateWorld(12345);
 assert(world.tiles.length === 32 * 32, "world has 1024 tiles");
-assert(findFrontierTiles(world).length > 0, "seeded world has frontier tiles");
+assert(findAssignableTiles(world).length > 0, "seeded world has frontier tiles");
 
 let played = 0;
 const seenArchetypes = new Set<string>();

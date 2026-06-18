@@ -3,7 +3,7 @@ import type { TileEntity } from "../engine/components";
 import type { WorldState } from "../engine/world";
 import { getTile } from "../engine/world";
 import { generateWorld } from "../systems/worldGeneration";
-import { assignFrontierTile } from "../systems/frontierAssignment";
+import { assignFrontierTile, isEligibleTile } from "../systems/frontierAssignment";
 import { analyzeContext } from "../systems/contextAnalysis";
 import { generateCards } from "../systems/cardGeneration";
 import { checkAllRequirements } from "../systems/requirementValidation";
@@ -73,27 +73,39 @@ class GameStore {
     saveWorld(this.state.world);
   }
 
-  /** Step 1-4: assign frontier, analyze context, generate the hand. */
+  /** Random daily ritual: pick a lively/eligible tile and deal its hand. */
   startDay = (): void => {
-    const world = this.state.world;
     if (this.state.phase === "choosing") return;
-
-    world.currentDay += 1;
-    const tile = assignFrontierTile(world);
+    const tile = assignFrontierTile(this.state.world);
     if (!tile) {
-      world.currentDay -= 1;
-      this.set({ message: "No frontier tiles available. Reset or edit the world." });
+      this.set({ message: "No assignable tiles available. Reset or edit the world." });
       return;
     }
+    this.beginSession(tile.id);
+  };
 
+  /**
+   * Begin a session on a specific tile (random or player-chosen). Advances the
+   * day, analyzes context and deals the hand. On a barren tile it rolls the
+   * day back so days only count when a future is actually offered.
+   */
+  private beginSession(tileId: string): void {
+    const world = this.state.world;
+    const tile = getTile(world, tileId);
+    if (!tile) return;
+
+    world.currentDay += 1;
+    world.assignedTileId = tile.id;
     const context = analyzeContext(world, tile);
     const hand = generateCards(world, context);
+
     if (hand.length === 0) {
-      this.set({
-        message: `Tile (${tile.position.x}, ${tile.position.y}) offered no plausible futures. Try Start Day again.`,
-      });
+      world.currentDay -= 1;
       world.assignedTileId = undefined;
       this.persist();
+      this.set({
+        message: `Tile (${tile.position.x}, ${tile.position.y}) offered no plausible futures.`,
+      });
       return;
     }
 
@@ -104,8 +116,25 @@ class GameStore {
       context,
       selectedCardId: undefined,
       inspectedTileId: tile.id,
-      message: `Day ${world.currentDay}: tile (${tile.position.x}, ${tile.position.y}) offers ${hand.length} futures.`,
+      message: `Day ${world.currentDay}: tile (${tile.position.x}, ${tile.position.y}) [${tile.terrain.kind}] offers ${hand.length} futures.`,
     });
+  }
+
+  /** Player-driven: click a tile to act on it directly (when idle). */
+  handleTileClick = (tileId: string): void => {
+    this.inspectTile(tileId);
+    if (this.state.phase !== "idle") return;
+
+    const tile = getTile(this.state.world, tileId);
+    if (!tile || !isEligibleTile(this.state.world, tile)) {
+      this.set({
+        message: tile
+          ? `(${tile.position.x}, ${tile.position.y}) [${tile.terrain.kind}] offers no actions right now.`
+          : this.state.message,
+      });
+      return;
+    }
+    this.beginSession(tileId);
   };
 
   selectCard = (cardId: string): void => {
@@ -147,6 +176,8 @@ class GameStore {
 
   cancelDay = (): void => {
     if (this.state.phase !== "choosing") return;
+    // No action was taken, so give the day back.
+    this.state.world.currentDay = Math.max(0, this.state.world.currentDay - 1);
     this.state.world.assignedTileId = undefined;
     this.persist();
     this.set({
