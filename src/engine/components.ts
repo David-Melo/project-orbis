@@ -198,6 +198,31 @@ export const LAND_TERRAINS: ReadonlySet<TerrainKind> = new Set<TerrainKind>([
   "basalt",
 ]);
 
+/**
+ * Canonical resting elevation + moisture for each terrain — the SINGLE source
+ * of truth for "what a fresh tile of this kind looks like." The world seed
+ * derives its tiles from this, so terrain values can never drift from the
+ * rules by hand. A test asserts these stay within the documented bands, so any
+ * rule change that breaks them fails loudly and forces the seed back in sync.
+ */
+export const TERRAIN_DEFAULTS: Record<TerrainKind, { elevation: number; moisture: number }> = {
+  empty: { elevation: 0, moisture: 0 },
+  void: { elevation: 0, moisture: 0 },
+  ocean: { elevation: 0, moisture: 9 },
+  coast: { elevation: 2, moisture: 7 },
+  cliff: { elevation: 6, moisture: 4 },
+  plain: { elevation: 4, moisture: 5 },
+  hill: { elevation: 6, moisture: 4 },
+  mountain: { elevation: 8, moisture: 3 },
+  volcano: { elevation: 8, moisture: 1 },
+  lava: { elevation: 6, moisture: 1 },
+  basalt: { elevation: 5, moisture: 2 },
+  river: { elevation: 3, moisture: 8 },
+  lake: { elevation: 2, moisture: 8 },
+  wetland: { elevation: 2, moisture: 8 },
+  ice: { elevation: 4, moisture: 3 },
+};
+
 /** Default surface flags for a freshly-set terrain kind. */
 export function defaultSurfaceFor(kind: TerrainKind): SurfaceComponent {
   switch (kind) {

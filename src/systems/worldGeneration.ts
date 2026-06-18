@@ -2,6 +2,7 @@ import { nextId } from "../engine/ids";
 import { Rng } from "../engine/rng";
 import {
   defaultSurfaceFor,
+  TERRAIN_DEFAULTS,
   type TerrainKind,
   type TileEntity,
 } from "../engine/components";
@@ -56,12 +57,13 @@ export function latitudeTemperature(y: number, height: number): number {
 }
 
 function makeTile(x: number, y: number, kind: TerrainKind, height: number): TileEntity {
+  const d = TERRAIN_DEFAULTS[kind];
   return {
     id: nextId("tile"),
     position: { x, y },
     terrain: { kind },
-    elevation: { value: 0 },
-    moisture: { value: 0 },
+    elevation: { value: d.elevation },
+    moisture: { value: d.moisture },
     temperature: { value: latitudeTemperature(y, height) },
     fertility: { value: 0 },
     surface: defaultSurfaceFor(kind),
@@ -76,15 +78,18 @@ function makeTile(x: number, y: number, kind: TerrainKind, height: number): Tile
  * through hills to plains. Most of the land's edge borders empty frontier (so
  * features can be extended outward during the growth phase), while a small bay
  * of coast and ocean on one side seeds the water-based cards.
+ *
+ * Only TERRAIN KINDS are placed here; every tile's elevation and moisture come
+ * from TERRAIN_DEFAULTS, so the seed can never drift from the rules.
  */
 function seedPrimordialIsland(world: WorldState, _rng: Rng): void {
   const cx = Math.floor(world.width / 2);
   const cy = Math.floor(world.height / 2);
 
-  const bands: Array<{ max: number; kind: TerrainKind; elevation: number; moisture: number }> = [
-    { max: 0.6, kind: "mountain", elevation: 8, moisture: 3 },
-    { max: 1.8, kind: "hill", elevation: 6, moisture: 4 },
-    { max: 2.9, kind: "plain", elevation: 4, moisture: 5 },
+  const bands: Array<{ max: number; kind: TerrainKind }> = [
+    { max: 0.6, kind: "mountain" },
+    { max: 1.8, kind: "hill" },
+    { max: 2.9, kind: "plain" },
   ];
 
   // Land blob — its outer plains border empty frontier on most sides.
@@ -94,30 +99,25 @@ function seedPrimordialIsland(world: WorldState, _rng: Rng): void {
       const dist = Math.sqrt(dx * dx + dy * dy);
       const band = bands.find((b) => dist < b.max);
       if (!band) continue;
-      setTerrain(world, cx + dx, cy + dy, band.kind, band.elevation, band.moisture);
+      setTerrain(world, cx + dx, cy + dy, band.kind);
     }
   }
 
   // A small bay on the eastern edge: a coast strip backed by open ocean.
   for (let dy = -2; dy <= 2; dy++) {
-    setTerrain(world, cx + 2, cy + dy, "coast", 2, 8);
-    setTerrain(world, cx + 3, cy + dy, "ocean", 0, 9);
-    setTerrain(world, cx + 4, cy + dy, "ocean", 0, 9);
+    setTerrain(world, cx + 2, cy + dy, "coast");
+    setTerrain(world, cx + 3, cy + dy, "ocean");
+    setTerrain(world, cx + 4, cy + dy, "ocean");
   }
 }
 
-function setTerrain(
-  world: WorldState,
-  x: number,
-  y: number,
-  kind: TerrainKind,
-  elevation: number,
-  moisture: number,
-): void {
+/** Paint a tile to a terrain kind, taking its elevation/moisture from defaults. */
+function setTerrain(world: WorldState, x: number, y: number, kind: TerrainKind): void {
   if (x < 0 || y < 0 || x >= world.width || y >= world.height) return;
   const tile = world.tiles[tileIndex(world, x, y)];
+  const d = TERRAIN_DEFAULTS[kind];
   tile.terrain.kind = kind;
-  tile.elevation.value = elevation;
-  tile.moisture.value = moisture;
+  tile.elevation.value = d.elevation;
+  tile.moisture.value = d.moisture;
   tile.surface = defaultSurfaceFor(kind);
 }

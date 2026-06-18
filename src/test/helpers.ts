@@ -121,3 +121,24 @@ export const ELEVATION_BANDS: Partial<Record<TerrainKind, [number, number]>> = {
   mountain: [6, 10],
   volcano: [7, 10],
 };
+
+/**
+ * Sensible moisture band per terrain — wet at the water, dry on the heights
+ * and the volcanic rock. Used to assert the hand-authored seed is logically
+ * consistent with how terrain "should" read, since everything derives from it.
+ */
+export const MOISTURE_BANDS: Partial<Record<TerrainKind, [number, number]>> = {
+  ocean: [8, 10],
+  coast: [5, 9],
+  cliff: [2, 6],
+  wetland: [7, 10],
+  lake: [7, 10],
+  river: [6, 10],
+  plain: [3, 7],
+  hill: [2, 6],
+  mountain: [1, 4],
+  volcano: [0, 3],
+  lava: [0, 2],
+  basalt: [1, 4],
+  ice: [1, 5],
+};
