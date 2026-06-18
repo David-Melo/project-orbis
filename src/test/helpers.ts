@@ -6,8 +6,11 @@ import { ARCHETYPES_BY_ID } from "../cards/archetypes";
 
 const WATER: TerrainKind[] = ["ocean", "coast", "river", "lake", "wetland"];
 const FRESH: TerrainKind[] = ["river", "lake", "wetland"];
-const HIGH: TerrainKind[] = ["hill", "mountain", "volcano"];
-const LAND: TerrainKind[] = ["coast", "plain", "hill", "mountain", "volcano", "basalt"];
+const HIGH: TerrainKind[] = ["hill", "mountain", "volcano", "glacier"];
+const LAND: TerrainKind[] = [
+  "coast", "plain", "hill", "mountain", "volcano", "basalt",
+  "tundra", "desert", "forest", "glacier",
+];
 
 /**
  * Build a synthetic TileContext from a list of adjacent terrains plus optional
@@ -120,6 +123,10 @@ export const ELEVATION_BANDS: Partial<Record<TerrainKind, [number, number]>> = {
   hill: [5, 8],
   mountain: [6, 10],
   volcano: [7, 10],
+  tundra: [3, 6],
+  desert: [3, 6],
+  forest: [3, 6],
+  glacier: [6, 10],
 };
 
 /**

@@ -83,6 +83,12 @@ function elevationFor(kind: TerrainKind, base: number): number {
       return clamp(base, 3, 8);
     case "ice":
       return clamp(base, 0, 10);
+    case "tundra":
+    case "desert":
+    case "forest":
+      return clamp(base, 3, 6);
+    case "glacier":
+      return clamp(Math.max(base, 6), 6, 10);
     default:
       return clamp(base, 0, 10);
   }
@@ -102,6 +108,10 @@ const TERRAIN_BANDS: Partial<Record<TerrainKind, [number, number]>> = {
   volcano: [7, 10],
   basalt: [3, 8],
   ice: [0, 10],
+  tundra: [3, 6],
+  desert: [3, 6],
+  forest: [3, 6],
+  glacier: [6, 10],
 };
 
 /**
@@ -356,6 +366,10 @@ const PRIMARY_ARCHETYPES: CardArchetype[] = [
     age: "primordial",
     targets: ["plain", "coast", "wetland"],
     canGenerate(ctx) {
+      // A coastal marsh can't "deepen to a freshwater lake" — the sea is right
+      // there. Leave drowning a seaside marsh to Spread Ocean (Erode Shore); the
+      // wetland->lake step is for INLAND marshes only.
+      if (ctx.targetTerrain === "wetland" && ctx.touchesOcean) return false;
       return targetOk(this, ctx);
     },
     build: (ctx, _w, rng) => {
@@ -542,7 +556,7 @@ const PRIMARY_ARCHETYPES: CardArchetype[] = [
     id: "melt_ice",
     name: "Melt Ice",
     age: "primordial",
-    targets: ["ice"],
+    targets: ["ice", "glacier"],
     canGenerate(ctx) {
       // Thaws at the warm margin or by lava — and CALVES at the open-water edge
       // even in the cold, so a polar ice sheet has a retreat as well as an
@@ -553,11 +567,19 @@ const PRIMARY_ARCHETYPES: CardArchetype[] = [
       );
     },
     build: (ctx, _w, rng) => {
-      const low = ctx.averageElevation <= 3;
-      const kind: TerrainKind = low ? "lake" : "wetland";
+      // A glacier sits on high ground, so it thaws back to bare rock (hill /
+      // mountain); sea/lake ice melts to open fresh water (lake / wetland).
+      const kind: TerrainKind =
+        ctx.targetTerrain === "glacier"
+          ? ctx.averageElevation >= 7
+            ? "mountain"
+            : "hill"
+          : ctx.averageElevation <= 3
+            ? "lake"
+            : "wetland";
       return {
-        title: "Melt Ice",
-        requirements: [{ type: "targetTerrainIn", terrains: ["ice"] }],
+        title: ctx.targetTerrain === "glacier" ? "Melt Glacier" : "Melt Ice",
+        requirements: [{ type: "targetTerrainIn", terrains: ["ice", "glacier"] }],
         effects: [
           { type: "setTerrain", terrain: kind },
           { type: "setElevation", value: elevationFor(kind, ctx.averageElevation) },
@@ -822,7 +844,12 @@ const PRIMARY_ARCHETYPES: CardArchetype[] = [
  * to the kind itself, but e.g. Extend Plain grows from any walkable land (a
  * beach's hinterland, a hill's foot), so you can always push grassland inland.
  */
-function makeExtend(kind: TerrainKind, label: string, sources: TerrainKind[] = [kind]): CardArchetype {
+function makeExtend(
+  kind: TerrainKind,
+  label: string,
+  sources: TerrainKind[] = [kind],
+  gate?: (ctx: TileContext) => boolean,
+): CardArchetype {
   return {
     id: `extend_${kind}`,
     name: `Extend ${label}`,
@@ -833,12 +860,22 @@ function makeExtend(kind: TerrainKind, label: string, sources: TerrainKind[] = [
         ctx.targetTerrain === "empty" &&
         sources.some((s) => ctx.adjacentTerrains.includes(s)) &&
         !ctx.touchesOcean &&
-        !ctx.touchesLava
+        !ctx.touchesLava &&
+        (!gate || gate(ctx))
       );
     },
     build(ctx, _w, rng) {
       const noun = label.toLowerCase();
-      const moisture = kind === "wetland" ? 7 : kind === "basalt" ? 2 : kind === "mountain" ? 3 : 4;
+      const MOISTURE_DELTA: Partial<Record<TerrainKind, number>> = {
+        wetland: 7,
+        forest: 5,
+        desert: -2,
+        tundra: -1,
+        basalt: 2,
+        mountain: 3,
+        glacier: 3,
+      };
+      const moisture = MOISTURE_DELTA[kind] ?? 4;
       // "Extend" when copying an identical neighbor; "Form" when growing this
       // terrain from a different source (e.g. grassland behind a coast/cliff).
       const title = ctx.adjacentTerrains.includes(kind) ? `Extend ${label}` : `Form ${label}`;
@@ -871,9 +908,162 @@ const EXTEND_ARCHETYPES: CardArchetype[] = [
   makeExtend("mountain", "Mountain"),
   makeExtend("basalt", "Basalt"),
   makeExtend("wetland", "Wetland"),
+  // Climate biomes spread laterally only where their climate holds, so a forest
+  // can't creep into the tundra (and vice versa) across the frontier.
+  makeExtend("tundra", "Tundra", ["tundra"], (ctx) => ctx.averageTemperature <= 3),
+  makeExtend(
+    "desert",
+    "Desert",
+    ["desert"],
+    (ctx) => ctx.averageTemperature >= 4 && ctx.averageMoisture <= 5,
+  ),
+  makeExtend(
+    "forest",
+    "Forest",
+    ["forest"],
+    (ctx) => ctx.averageTemperature >= 3 && ctx.averageTemperature <= 6 && ctx.averageMoisture >= 5,
+  ),
+  makeExtend("glacier", "Glacier", ["glacier"], (ctx) => ctx.averageTemperature <= 3),
 ];
 
-export const ARCHETYPES: CardArchetype[] = [...PRIMARY_ARCHETYPES, ...EXTEND_ARCHETYPES];
+/**
+ * Climate biomes: a land COVER painted onto bare ground by the local climate
+ * (the temperature/moisture we already track). Each is a transform of existing
+ * land — grassland turning to frozen tundra in the cold, to sand in the hot
+ * dry, to forest in the temperate wet; bare cold peaks icing over into glaciers.
+ * Land-to-land (and glacier↔rock via Melt), so they add variety without the
+ * one-way water/ice drift the equilibrium pass fixed.
+ */
+/**
+ * A climate biome that both CONVERTS an existing plain and SEEDS on empty
+ * frontier beside land (so the type appears as the world grows, not only by
+ * converting the rare edge plain). On empty frontier it stands down when an
+ * identical neighbor exists — that case is the `extend_<kind>` card's job — so
+ * the two never offer the same terrain on one tile.
+ */
+function makeBiome(
+  kind: TerrainKind,
+  title: string,
+  trait: string,
+  climate: (ctx: TileContext) => boolean,
+  extraReq: Requirement,
+  moistureDelta: number,
+  flavors: string[],
+  fertilityDelta = 0,
+): CardArchetype {
+  return {
+    id: kind === "forest" ? "grow_forest" : `form_${kind}`,
+    name: title,
+    age: "primordial",
+    targets: ["plain", "empty"],
+    canGenerate(ctx) {
+      if (!climate(ctx)) return false;
+      if (ctx.targetTerrain === "plain") return true;
+      // Empty frontier: seed the biome beside land, but leave continuing an
+      // existing patch to extend_<kind> (avoids a duplicate same-terrain card).
+      return (
+        ctx.targetTerrain === "empty" &&
+        ctx.touchesLand &&
+        !ctx.touchesLava &&
+        !ctx.adjacentTerrains.includes(kind)
+      );
+    },
+    build(ctx, _w, rng) {
+      const base = ctx.targetTerrain === "empty" ? ctx.averageElevation : ctx.targetElevation;
+      const effects: Effect[] = [
+        { type: "setTerrain", terrain: kind },
+        { type: "setElevation", value: matchElevation(kind, base) },
+        { type: "adjustMoisture", amount: moistureDelta },
+        { type: "addTrait", trait },
+      ];
+      if (fertilityDelta) effects.push({ type: "adjustFertility", amount: fertilityDelta });
+      return {
+        title,
+        requirements: [{ type: "targetTerrainIn", terrains: ["plain", "empty"] }, extraReq],
+        effects,
+        flavor: pickFlavor(rng, flavors),
+      };
+    },
+  };
+}
+
+const BIOME_ARCHETYPES: CardArchetype[] = [
+  makeBiome(
+    "tundra",
+    "Form Tundra",
+    "frozen-ground",
+    (ctx) => ctx.averageTemperature <= 3,
+    { type: "maxTemperature", value: 3 },
+    -1,
+    [
+      "The grass gives way to moss and lichen on frozen ground.",
+      "Cold settles into the soil and only the hardy green survives.",
+      "The plain stiffens into tundra under a long winter.",
+    ],
+  ),
+  makeBiome(
+    "desert",
+    "Form Desert",
+    "arid",
+    // Warm land that the neighborhood can't keep moist dries to desert: hot and
+    // not-wet (forest claims the moist warm land at moisture >= 6).
+    (ctx) => ctx.averageTemperature >= 4 && ctx.averageMoisture <= 5,
+    { type: "maxMoisture", value: 5 },
+    -2,
+    [
+      "The heat bakes the ground bare and the sand takes over.",
+      "Without water the green burns away to dune and dust.",
+      "The plain dries to a sea of shifting sand.",
+    ],
+  ),
+  makeBiome(
+    "forest",
+    "Grow Forest",
+    "wooded",
+    (ctx) => ctx.averageTemperature >= 3 && ctx.averageTemperature <= 6 && ctx.averageMoisture >= 6,
+    { type: "minMoisture", value: 6 },
+    1,
+    [
+      "Roots take hold and the grassland thickens into wood.",
+      "Trees rise where the rain is steady and the soil is deep.",
+      "The plain disappears beneath a closing canopy.",
+    ],
+    2,
+  ),
+  {
+    id: "form_glacier",
+    name: "Form Glacier",
+    age: "primordial",
+    targets: ["hill", "mountain", "cliff"],
+    canGenerate(ctx) {
+      return targetOk(this, ctx) && ctx.averageTemperature <= 3;
+    },
+    build: (ctx, _w, rng) => ({
+      title: "Form Glacier",
+      requirements: [
+        { type: "targetTerrainIn", terrains: ["hill", "mountain", "cliff"] },
+        { type: "maxTemperature", value: 3 },
+      ],
+      effects: [
+        { type: "setTerrain", terrain: "glacier" },
+        { type: "setElevation", value: matchElevation("glacier", ctx.targetElevation) },
+        { type: "adjustMoisture", amount: 2 },
+        { type: "addTrait", trait: "glacier" },
+      ],
+      flavor: pickFlavor(rng, [
+        "Snow piles past melting and packs into living ice.",
+        "The cold heights gather a glacier that will not leave.",
+        "Ice crowns the peak and begins its slow grind downhill.",
+      ]),
+    }),
+  },
+];
+
+export const ARCHETYPES: CardArchetype[] = [
+  ...PRIMARY_ARCHETYPES,
+  ...BIOME_ARCHETYPES,
+  ...EXTEND_ARCHETYPES,
+];
 
 export const ARCHETYPES_BY_ID: Record<string, CardArchetype> = Object.fromEntries(
   ARCHETYPES.map((a) => [a.id, a]),

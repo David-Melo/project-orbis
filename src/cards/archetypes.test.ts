@@ -108,6 +108,16 @@ describe("coverage — every archetype fires and every terrain is producible", (
     makeContext(["plain"], { targetTerrain: "ice", averageTemperature: 4 }), // melt_ice
     makeContext(["ice"], { averageTemperature: 2 }), // extend_ice (glacier)
     makeContext([], { targetTerrain: "lava", averageTemperature: 5 }), // cool_lava in place
+    // Climate biomes (conversions) + their lateral extends.
+    makeContext(["plain"], { targetTerrain: "plain", averageTemperature: 2 }), // form_tundra
+    makeContext(["plain"], { targetTerrain: "plain", averageTemperature: 6, averageMoisture: 2 }), // form_desert
+    makeContext(["plain"], { targetTerrain: "plain", averageTemperature: 5, averageMoisture: 7 }), // grow_forest
+    makeContext(["mountain"], { targetTerrain: "mountain", targetElevation: 8, averageTemperature: 2 }), // form_glacier
+    makeContext(["glacier"], { targetTerrain: "glacier", averageElevation: 8, averageTemperature: 6 }), // melt_ice (glacier->mountain)
+    makeContext(["tundra"], { averageTemperature: 2 }), // extend_tundra
+    makeContext(["desert"], { averageTemperature: 6, averageMoisture: 2 }), // extend_desert
+    makeContext(["forest"], { averageTemperature: 5, averageMoisture: 6 }), // extend_forest
+    makeContext(["glacier"], { averageTemperature: 2 }), // extend_glacier
   ];
 
   const firedArchetypes = new Set<string>();
@@ -131,6 +141,7 @@ describe("coverage — every archetype fires and every terrain is producible", (
     const producible: TerrainKind[] = [
       "ocean", "coast", "cliff", "plain", "hill", "mountain",
       "volcano", "lava", "basalt", "river", "lake", "wetland", "ice",
+      "tundra", "desert", "forest", "glacier",
     ];
     const missing = producible.filter((t) => !producedTerrains.has(t));
     expect(missing, `terrains no card produces: ${missing.join(", ")}`).toEqual([]);
@@ -258,6 +269,13 @@ describe("sink_land (downward ladder)", () => {
     expect(resultTerrain("sink_land", makeContext(["ocean"], { targetTerrain: "coast", averageElevation: 1 }))).toBe("wetland");
     expect(resultTerrain("sink_land", makeContext(["plain"], { targetTerrain: "wetland", averageElevation: 3 }))).toBe("lake");
   });
+
+  it("a COASTAL marsh does not deepen to a freshwater lake (the sea is right there)", () => {
+    // Inland marsh -> lake is fine; a marsh touching ocean offers no Sink (the
+    // sea reclaiming it is Spread Ocean's Erode Shore).
+    expect(canGen("sink_land", makeContext(["plain"], { targetTerrain: "wetland" }))).toBe(true);
+    expect(canGen("sink_land", makeContext(["ocean"], { targetTerrain: "wetland" }))).toBe(false);
+  });
 });
 
 describe("volcano & lava", () => {
@@ -314,7 +332,7 @@ describe("ice (cold gating)", () => {
   });
 
   it("melt_ice thaws ice at the warm margin (temp>=4) OR next to lava/volcano — so ice is two-directional", () => {
-    expect(ARCHETYPES_BY_ID.melt_ice.targets).toEqual(["ice"]);
+    expect(ARCHETYPES_BY_ID.melt_ice.targets).toEqual(["ice", "glacier"]);
     expect(canGen("melt_ice", makeContext(["plain"], { targetTerrain: "ice", averageTemperature: 4 }))).toBe(true);
     expect(canGen("melt_ice", makeContext(["plain"], { targetTerrain: "ice", averageTemperature: 2 }))).toBe(false);
     // Even in the cold, lava/volcano melts adjacent ice.

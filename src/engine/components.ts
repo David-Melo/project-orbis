@@ -15,6 +15,10 @@ export type TerrainKind =
   | "lake"
   | "wetland"
   | "ice"
+  | "tundra"
+  | "desert"
+  | "forest"
+  | "glacier"
   | "void";
 
 export type Direction = "n" | "e" | "s" | "w";
@@ -125,6 +129,10 @@ export const TERRAIN_GLYPH: Record<TerrainKind, string> = {
   lake: "O",
   wetland: ",",
   ice: "I",
+  tundra: "t",
+  desert: "d",
+  forest: "Y",
+  glacier: "g",
   void: " ",
 };
 
@@ -144,6 +152,10 @@ export const TERRAIN_COLOR: Record<TerrainKind, string> = {
   lake: "#2f6fb0",
   wetland: "#4f6b4a",
   ice: "#bfe3ef",
+  tundra: "#9aa79c",
+  desert: "#dccb78",
+  forest: "#2f6b34",
+  glacier: "#dfeef5",
   void: "#000000",
 };
 
@@ -162,6 +174,10 @@ export const TERRAIN_LABEL: Record<TerrainKind, string> = {
   lake: "Lake",
   wetland: "Wetland",
   ice: "Ice",
+  tundra: "Tundra",
+  desert: "Desert",
+  forest: "Forest",
+  glacier: "Glacier",
   void: "Void",
 };
 
@@ -203,6 +219,7 @@ export const HIGH_GROUND_TERRAINS: ReadonlySet<TerrainKind> = new Set<TerrainKin
   "hill",
   "mountain",
   "volcano",
+  "glacier",
 ]);
 
 /** Solid land the world can grow outward from. */
@@ -214,6 +231,10 @@ export const LAND_TERRAINS: ReadonlySet<TerrainKind> = new Set<TerrainKind>([
   "mountain",
   "volcano",
   "basalt",
+  "tundra",
+  "desert",
+  "forest",
+  "glacier",
 ]);
 
 /**
@@ -239,6 +260,10 @@ export const TERRAIN_DEFAULTS: Record<TerrainKind, { elevation: number; moisture
   lake: { elevation: 2, moisture: 8 },
   wetland: { elevation: 2, moisture: 8 },
   ice: { elevation: 4, moisture: 3 },
+  tundra: { elevation: 4, moisture: 3 },
+  desert: { elevation: 4, moisture: 1 },
+  forest: { elevation: 4, moisture: 7 },
+  glacier: { elevation: 7, moisture: 5 },
 };
 
 /** Default surface flags for a freshly-set terrain kind. */
@@ -268,6 +293,14 @@ export function defaultSurfaceFor(kind: TerrainKind): SurfaceComponent {
     case "basalt":
       return surf({ solid: true, walkable: true, buildable: true });
     case "ice":
+      return surf({ solid: true, walkable: true });
+    case "tundra":
+      return surf({ solid: true, walkable: true, buildable: true, freezable: true });
+    case "desert":
+      return surf({ solid: true, walkable: true, buildable: true });
+    case "forest":
+      return surf({ solid: true, walkable: true, buildable: true, burnable: true, freezable: true });
+    case "glacier":
       return surf({ solid: true, walkable: true });
     case "empty":
     case "void":

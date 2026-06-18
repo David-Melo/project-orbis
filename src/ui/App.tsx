@@ -122,6 +122,10 @@ function Legend() {
     ["O", "lake"],
     [",", "wetland"],
     ["I", "ice"],
+    ["t", "tundra"],
+    ["d", "desert"],
+    ["Y", "forest"],
+    ["g", "glacier"],
   ];
   return (
     <div className="legend">

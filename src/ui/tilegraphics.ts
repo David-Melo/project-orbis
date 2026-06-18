@@ -25,8 +25,12 @@ const TERRAIN_LAYER: Record<TerrainKind, number> = {
   plain: 3,
   basalt: 3,
   lava: 3,
+  tundra: 3,
+  desert: 3,
+  forest: 3,
   cliff: 4,
   hill: 4,
+  glacier: 4,
   mountain: 5,
   volcano: 5,
 };
