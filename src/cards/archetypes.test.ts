@@ -242,19 +242,32 @@ describe("ice (cold gating)", () => {
 });
 
 describe("rivers, lakes, springs", () => {
-  it("carve_river needs a source (high ground or fresh water), never bare plains or lava", () => {
+  it("carve_river needs a slope/meltwater/river source and stays linear (not water-boxed)", () => {
     expect(canGen("carve_river", makeContext(["plain"], { averageElevation: 4 }))).toBe(false);
     expect(canGen("carve_river", makeContext(["mountain"], { averageElevation: 6 }))).toBe(true);
     expect(canGen("carve_river", makeContext(["river"]))).toBe(true);
     expect(canGen("carve_river", makeContext(["mountain", "lava"]))).toBe(false);
+    // Boxed in by water -> would fill a blob, so no new river.
+    expect(canGen("carve_river", makeContext(["river", "river", "lake"]))).toBe(false);
   });
 
-  it("form_lake needs an actual fresh-water source, never a bare basin or dry plain", () => {
+  it("form_lake needs a fresh-water source AND a low basin, and won't fill a water blob", () => {
     expect(canGen("form_lake", makeContext(["plain"], { averageElevation: 5 }))).toBe(false);
+    // River feeding a genuine low spot -> lake.
     expect(canGen("form_lake", makeContext(["river"], { averageElevation: 2 }))).toBe(true);
+    // River next to mid-elevation ground that is NOT a basin -> no lake (was the bias).
+    expect(canGen("form_lake", makeContext(["river"], { averageElevation: 4, isBasin: false }))).toBe(false);
     // A dry basin with no source is NOT a lake (that is Form Spring's pool).
     expect(canGen("form_lake", makeContext(["plain", "plain", "plain"], { isBasin: true, averageElevation: 4 }))).toBe(false);
     expect(resultTerrain("form_lake", makeContext(["river"], { averageElevation: 2 }))).toBe("lake");
+  });
+
+  it("form_floodplain is the way OUT of water: fertile land beside fresh water", () => {
+    expect(resultTerrain("form_floodplain", makeContext(["river"], { averageElevation: 3 }))).toBe("plain");
+    expect(canGen("form_floodplain", makeContext(["lake", "wetland"], { averageElevation: 3 }))).toBe(true);
+    // Defers to extend_plain when there is a plain to extend, and needs water.
+    expect(canGen("form_floodplain", makeContext(["river", "plain"]))).toBe(false);
+    expect(canGen("form_floodplain", makeContext(["plain", "plain"]))).toBe(false);
   });
 
   it("form_spring seeds water in a dry basin/land but never beside ANY water (incl. coast)", () => {

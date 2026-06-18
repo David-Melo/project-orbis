@@ -29,9 +29,11 @@ for the full vision and roadmap.
   - **Shorelines:** Form Shore begins a coast from dry land; Form Cliff makes a
     tall shore where high land meets the sea; Spread Ocean places sea beside any
     shoreline (ocean, coast or wetland) so islands can be carved and closed off.
-  - **Context actions:** form coast, erupt volcano, cool lava, freeze, melt ice,
-    carve river, form lake (needs a water source), form spring (seeds water in
-    dry interior).
+  - **Context actions:** form coast, erupt volcano (mountains/volcanic regions
+    only), cool lava, freeze, melt ice, carve river (needs a slope/meltwater
+    source, stays linear), form lake (needs a source + a low basin), form spring
+    (seeds water in dry interior), form floodplain (fertile land beside water —
+    the way out of a water-locked frontier).
   - **Rule integrity** is locked down by a Vitest suite (`npm test`) that checks
     each card's gating, the transition ladders, and — crucially — that no two
     cards ever offer the same terrain on one tile (no duplicate/weird options).

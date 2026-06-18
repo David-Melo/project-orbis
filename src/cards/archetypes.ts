@@ -45,6 +45,10 @@ const WATER_KINDS: TerrainKind[] = ["ocean", "coast", "lake", "river", "wetland"
 
 const clamp = (v: number, lo = 0, hi = 10) => Math.max(lo, Math.min(hi, Math.round(v)));
 
+/** How many orthogonal neighbors are water — used to stop water filling blobs. */
+const adjacentWaterCount = (ctx: TileContext) =>
+  ctx.adjacentTerrains.filter((t) => WATER_KINDS.includes(t)).length;
+
 /** Does the target tile's current terrain allow this archetype? */
 const targetOk = (a: CardArchetype, ctx: TileContext) => a.targets.includes(ctx.targetTerrain);
 
@@ -521,19 +525,59 @@ const PRIMARY_ARCHETYPES: CardArchetype[] = [
     },
   },
 
-  // 10. Carve River — needs a SOURCE (high ground spring or existing fresh
-  //     water/ice). Can cut through empty frontier OR existing plain/wetland.
+  // 9b. Form Floodplain — fertile LAND beside fresh water. This is the way
+  //     OUT of a water-locked frontier: instead of only ever making more
+  //     river/lake, a tile touching fresh water (with no plain to extend) can
+  //     become a fertile bank. Fires especially where water has boxed a tile
+  //     in, so water no longer begets only water.
+  {
+    id: "form_floodplain",
+    name: "Form Floodplain",
+    age: "primordial",
+    targets: ["empty"],
+    canGenerate(ctx) {
+      return (
+        ctx.targetTerrain === "empty" &&
+        ctx.touchesFreshWater &&
+        !ctx.touchesLava &&
+        !ctx.adjacentTerrains.includes("plain") && // extend_plain owns that case
+        ctx.averageElevation <= 6
+      );
+    },
+    build: (ctx, _w, rng) => ({
+      title: "Form Floodplain",
+      requirements: [
+        { type: "targetTerrainIn", terrains: ["empty"] },
+        { type: "touchesAnyTerrain", terrains: ["river", "lake", "wetland"] },
+      ],
+      effects: [
+        { type: "setTerrain", terrain: "plain" },
+        { type: "setElevation", value: clamp(Math.max(ctx.averageElevation, 3), 3, 5) },
+        { type: "adjustMoisture", amount: 6 },
+        { type: "adjustFertility", amount: 3 },
+        { type: "addTrait", trait: "fertile" },
+      ],
+      flavor: pickFlavor(rng, [
+        "Silt settles into rich, fertile ground along the water.",
+        "The flood leaves behind dark, living soil.",
+        "A green bank rises beside the water, ready for life.",
+      ]),
+    }),
+  },
+
+  // 10. Carve River — needs a SOURCE (high ground spring, meltwater, or an
+  //     existing river) and extends along an edge rather than filling water.
   {
     id: "carve_river",
     name: "Carve River",
     age: "primordial",
     targets: ["empty", "plain", "wetland", "basalt"],
     canGenerate(ctx) {
-      return (
-        targetOk(this, ctx) &&
-        !ctx.touchesLava &&
-        (ctx.touchesHighGround || ctx.touchesFreshWater || ctx.touchesIce)
-      );
+      // A river needs a real source — a slope (high ground), meltwater (ice),
+      // or an existing river to continue — and must extend along an edge, not
+      // fill a water body (so it stays linear instead of blobbing out).
+      const hasSource = ctx.touchesHighGround || ctx.touchesIce || ctx.touchesRiver;
+      return targetOk(this, ctx) && !ctx.touchesLava && hasSource && adjacentWaterCount(ctx) <= 2;
     },
     build: (ctx, _w, rng) => ({
       title: "Carve River",
@@ -565,10 +609,16 @@ const PRIMARY_ARCHETYPES: CardArchetype[] = [
     age: "primordial",
     targets: ["empty", "plain", "wetland", "basalt"],
     canGenerate(ctx) {
+      // A lake needs a fresh-water source AND a genuine low spot to collect in
+      // (a basin or very low ground), and won't form if the tile is already
+      // boxed in by water — otherwise lakes spread into blobs.
+      const lowEnough = ctx.isBasin || ctx.averageElevation <= 2;
       return (
         targetOk(this, ctx) &&
         ctx.averageElevation <= 5 &&
-        (ctx.touchesFreshWater || ctx.touchesIce)
+        (ctx.touchesFreshWater || ctx.touchesIce) &&
+        lowEnough &&
+        adjacentWaterCount(ctx) <= 3
       );
     },
     build: (ctx, _w, rng) => ({
