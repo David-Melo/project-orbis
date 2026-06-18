@@ -23,10 +23,13 @@ body {
 }
 
 .app {
-  min-height: 100vh;
-  padding: 16px;
-  display: flex;
-  flex-direction: column;
+  height: 100vh;
+  width: 100vw;
+  padding: 10px;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: 10px;
+  overflow: hidden;
 }
 
 .app__header {
@@ -35,8 +38,7 @@ body {
   align-items: baseline;
   gap: 12px;
   border-bottom: 1px solid var(--border);
-  padding-bottom: 12px;
-  margin-bottom: 16px;
+  padding-bottom: 8px;
 }
 
 .app__header h1 {
@@ -58,34 +60,39 @@ body {
   font-size: 13px;
 }
 
-/* Three-column body: left rail, centered map, right inspector. */
+/* Three-column body filling the viewport: narrow rails, dominant centered map. */
 .app__body {
   display: grid;
-  grid-template-columns: minmax(260px, 1fr) auto minmax(300px, 1fr);
-  gap: 16px;
-  align-items: start;
+  grid-template-columns: minmax(190px, 230px) minmax(0, 1fr) minmax(220px, 300px);
+  gap: 12px;
+  min-height: 0;
+  align-items: stretch;
 }
 
-.app__left {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.app__center {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 10px;
-}
-
+.app__left,
 .app__right {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 12px;
+  min-height: 0;
+  overflow-y: auto;
 }
 
-@media (max-width: 1200px) {
+/* Center column: toggle (auto) / map (fills) / legend (auto). */
+.app__center {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: 8px;
+  min-height: 0;
+  min-width: 0;
+  justify-items: center;
+}
+
+@media (max-width: 900px) {
+  .app {
+    height: auto;
+    overflow: auto;
+  }
   .app__body {
     grid-template-columns: 1fr;
   }
@@ -99,14 +106,27 @@ body {
   background: var(--panel);
   border: 1px solid var(--border);
   border-radius: 8px;
-  padding: 10px;
-  width: max-content;
+  padding: 8px;
+  min-height: 0;
+  min-width: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
 }
 
-/* Dual-grid terrain SVG with a transparent interaction grid layered on top. */
+/* Dual-grid terrain SVG with a transparent interaction grid layered on top.
+   Sized as the largest square (aspect set inline from the world W:H) that fits
+   the center cell, so the map grows to use the viewport. */
 .map-stage {
   position: relative;
   background: #05070a;
+  height: 100%;
+  width: auto;
+  max-width: 100%;
+  max-height: 100%;
 }
 
 .map-terrain {
@@ -122,8 +142,8 @@ body {
 }
 
 .icell {
-  width: var(--tile);
-  height: var(--tile);
+  width: auto;
+  height: auto;
   padding: 0;
   margin: 0;
   border: 1px solid rgba(255, 255, 255, 0.035);
@@ -209,9 +229,10 @@ body {
 
 /* ---- Bottom session dock ---- */
 .app__dock {
-  margin-top: 16px;
-  padding-top: 14px;
+  padding-top: 10px;
   border-top: 1px solid var(--border);
+  max-height: 30vh;
+  overflow-y: auto;
 }
 
 .dock {
@@ -270,7 +291,7 @@ kbd {
   background: var(--panel);
   border: 1px solid var(--border);
   border-radius: 8px;
-  padding: 14px;
+  padding: 10px 12px;
 }
 
 .panel__header {

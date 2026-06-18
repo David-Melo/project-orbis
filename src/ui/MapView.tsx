@@ -172,10 +172,7 @@ export function MapView() {
 
   return (
     <div className="map-view">
-      <div
-        className="map-stage"
-        style={{ width: `calc(var(--tile) * ${W})`, height: `calc(var(--tile) * ${H})` }}
-      >
+      <div className="map-stage" style={{ aspectRatio: `${W} / ${H}` }}>
         <svg
           className="map-terrain"
           viewBox={`0 0 ${W * U} ${H * U}`}
@@ -191,8 +188,8 @@ export function MapView() {
         <div
           className="map-interact"
           style={{
-            gridTemplateColumns: `repeat(${W}, var(--tile))`,
-            gridTemplateRows: `repeat(${H}, var(--tile))`,
+            gridTemplateColumns: `repeat(${W}, 1fr)`,
+            gridTemplateRows: `repeat(${H}, 1fr)`,
           }}
         >
           {world.tiles.map((tile) => {
