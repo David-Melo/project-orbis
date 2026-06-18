@@ -86,34 +86,49 @@ function elevationFor(kind: TerrainKind, base: number): number {
 const pickFlavor = (rng: Rng, options: string[]): string => rng.pick(options);
 
 export const ARCHETYPES: CardArchetype[] = [
-  // 1. Raise Land — inland growth (or lifting a coast back into dry land).
-  //    Touches land, NOT open ocean, so a plain never forms directly on the sea.
+  // 1. Raise Land — UPLIFT. Builds new inland ground on empty/coast, and lifts
+  //    existing land one step up the chain: plain -> hill -> mountain. Touches
+  //    land, NOT open ocean, so a plain never forms directly on the sea. This
+  //    is the inverse of Wear Down.
   {
     id: "raise_land",
     name: "Raise Land",
     age: "primordial",
-    targets: ["empty", "coast"],
+    targets: ["empty", "coast", "plain", "hill"],
     canGenerate(ctx) {
       return targetOk(this, ctx) && ctx.touchesLand && !ctx.touchesOcean;
     },
     build: (ctx, _w, rng) => {
-      const becomesHill = ctx.averageElevation >= 5;
-      const kind: TerrainKind = becomesHill ? "hill" : "plain";
+      let kind: TerrainKind;
+      let value: number;
+      if (ctx.targetTerrain === "plain") {
+        kind = "hill";
+        value = clamp(ctx.targetElevation + 2, 5, 8);
+      } else if (ctx.targetTerrain === "hill") {
+        kind = "mountain";
+        value = clamp(ctx.targetElevation + 2, 7, 10);
+      } else {
+        // empty or coast: new ground, hill if the surrounding land is high.
+        kind = ctx.averageElevation >= 5 ? "hill" : "plain";
+        value = elevationFor(kind, ctx.averageElevation);
+      }
+      const title =
+        kind === "mountain" ? "Raise Mountain" : kind === "hill" ? "Raise Hill" : "Raise Land";
       return {
-        title: becomesHill ? "Raise Hill" : "Raise Land",
+        title,
         requirements: [
-          { type: "targetTerrainIn", terrains: ["empty", "coast"] },
+          { type: "targetTerrainIn", terrains: ["empty", "coast", "plain", "hill"] },
           { type: "touchesAnyTerrain", terrains: LAND_TOUCH },
         ],
         effects: [
           { type: "setTerrain", terrain: kind },
-          { type: "setElevation", value: elevationFor(kind, ctx.averageElevation) },
+          { type: "setElevation", value },
           { type: "adjustMoisture", amount: -1 },
         ],
         flavor: pickFlavor(rng, [
-          "The land rises another step from the ground behind it.",
-          "New earth swells gently above its neighbors.",
-          "The continent reaches a little further inland.",
+          "The ground heaves upward, reaching for the sky.",
+          "Old rock buckles and rises another step.",
+          "The land swells higher above its neighbors.",
         ]),
       };
     },
@@ -475,7 +490,51 @@ export const ARCHETYPES: CardArchetype[] = [
     }),
   },
 
-  // 12. Wear Down — erosion lowers heights one step: volcano→mountain,
+  // 12. Form Spring — groundwater wells up on dry land that has some latent
+  //     moisture and isn't already beside water. A marshy wetland, or a
+  //     spring-fed pool if it sits in a basin. This is how you seed brand-new
+  //     water into dry interior instead of being stuck with raise/erupt.
+  {
+    id: "form_spring",
+    name: "Form Spring",
+    age: "primordial",
+    targets: ["empty", "plain"],
+    canGenerate(ctx) {
+      return (
+        targetOk(this, ctx) &&
+        ctx.touchesLand &&
+        !ctx.touchesOcean &&
+        !ctx.touchesLava &&
+        !ctx.touchesFreshWater &&
+        ctx.averageMoisture >= 3 &&
+        ctx.averageElevation <= 6
+      );
+    },
+    build: (ctx, _w, rng) => {
+      const kind: TerrainKind = ctx.isBasin ? "lake" : "wetland";
+      return {
+        title: kind === "lake" ? "Spring-fed Pool" : "Form Spring",
+        requirements: [
+          { type: "targetTerrainIn", terrains: ["empty", "plain"] },
+          { type: "maxElevation", value: 6 },
+        ],
+        effects: [
+          { type: "setTerrain", terrain: kind },
+          { type: "setElevation", value: elevationFor(kind, ctx.averageElevation) },
+          { type: "adjustMoisture", amount: 5 },
+          { type: "spreadMoisture", amount: 2, radius: 1 },
+          { type: "addTrait", trait: "freshwater" },
+        ],
+        flavor: pickFlavor(rng, [
+          "Groundwater finds a weakness and wells up into the light.",
+          "A spring bubbles up where the dry land least expected it.",
+          "Hidden water surfaces and softens the ground to reed and pool.",
+        ]),
+      };
+    },
+  },
+
+  // 13. Wear Down — erosion lowers heights one step: volcano→mountain,
   //     mountain→hill, hill→plain. The world is allowed to come back down.
   {
     id: "wear_down",

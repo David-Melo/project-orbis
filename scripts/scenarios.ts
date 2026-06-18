@@ -85,6 +85,21 @@ expect("extend_coast", ctx(["plain", "plain"], { averageElevation: 4 }), false, 
   if (terrainOf("extend_coast", c) !== "coast") failures++;
 }
 
+// Dry-land options: uplift chain and springs.
+expect("raise_land", ctx(["plain", "plain"], { targetTerrain: "plain", targetElevation: 4, averageElevation: 4 }), true, "dry: plain can uplift");
+{
+  const c = ctx(["plain"], { targetTerrain: "plain", targetElevation: 4, averageElevation: 4 });
+  console.log(`${terrainOf("raise_land", c) === "hill" ? "ok" : "FAIL"}: dry: plain uplifts to hill`);
+  if (terrainOf("raise_land", c) !== "hill") failures++;
+  const h = ctx(["hill"], { targetTerrain: "hill", targetElevation: 6, averageElevation: 6 });
+  console.log(`${terrainOf("raise_land", h) === "mountain" ? "ok" : "FAIL"}: dry: hill uplifts to mountain`);
+  if (terrainOf("raise_land", h) !== "mountain") failures++;
+}
+// A spring can seed water on dry land with latent moisture and no water nearby.
+expect("form_spring", ctx(["plain", "plain"], { targetTerrain: "plain", averageElevation: 4, averageMoisture: 5 }), true, "dry: spring wells up on a moist plain");
+expect("form_spring", ctx(["plain"], { targetTerrain: "plain", averageElevation: 4, averageMoisture: 1 }), false, "dry: no spring on bone-dry land");
+expect("form_spring", ctx(["lake", "plain"], { targetTerrain: "plain", averageElevation: 4, averageMoisture: 6 }), false, "dry: no spring next to existing fresh water");
+
 // Reversibility (the new capability):
 // Coast can erode back to ocean.
 expect("spread_ocean", ctx(["ocean", "ocean"], { targetTerrain: "coast", targetElevation: 2, averageElevation: 1 }), true, "rev: coast erodes to ocean");
