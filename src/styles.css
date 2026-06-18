@@ -146,7 +146,7 @@ body {
   height: auto;
   padding: 0;
   margin: 0;
-  border: 1px solid rgba(255, 255, 255, 0.035);
+  border: 1px solid rgba(255, 255, 255, 0.02);
   cursor: pointer;
   background: transparent;
   line-height: 0;

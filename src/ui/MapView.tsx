@@ -50,6 +50,9 @@ const DualCell = memo(function DualCell({
         <polygon
           key={k}
           fill={s.color}
+          stroke={s.color}
+          strokeWidth={0.75}
+          strokeLinejoin="round"
           points={s.points.map(([lx, ly]) => `${ox + lx * U},${oy + ly * U}`).join(" ")}
         />
       ))}
