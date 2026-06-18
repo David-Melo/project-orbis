@@ -154,8 +154,11 @@ describe("raise_land (vertical uplift)", () => {
     expect(resultTerrain("raise_land", makeContext(["hill"], { targetTerrain: "hill", targetElevation: 6 }))).toBe("mountain");
   });
 
-  it("does not uplift land that touches open ocean", () => {
-    expect(canGen("raise_land", makeContext(["ocean", "plain"], { targetTerrain: "plain" }))).toBe(false);
+  it("CAN uplift coastal land touching the ocean (deposition is the counter to erosion)", () => {
+    // Uplift must be reachable at the shore, otherwise coastal land can only
+    // ever sink and the warm middle drains to open sea over a long run.
+    expect(canGen("raise_land", makeContext(["ocean", "plain"], { targetTerrain: "plain" }))).toBe(true);
+    expect(canGen("raise_land", makeContext(["ocean", "coast"], { targetTerrain: "coast" }))).toBe(true);
   });
 });
 
@@ -317,6 +320,18 @@ describe("ice (cold gating)", () => {
     // Even in the cold, lava/volcano melts adjacent ice.
     expect(canGen("melt_ice", makeContext(["lava"], { targetTerrain: "ice", averageTemperature: 2 }))).toBe(true);
   });
+
+  it("freeze needs a front (shore or ice); open polar sea stays liquid so ice can't saturate", () => {
+    // A cold water tile touching land or ice freezes...
+    expect(canGen("freeze", makeContext(["plain"], { targetTerrain: "ocean", averageTemperature: 2 }))).toBe(true);
+    expect(canGen("freeze", makeContext(["ice"], { targetTerrain: "ocean", averageTemperature: 2 }))).toBe(true);
+    // ...but deep open sea (only water neighbors, no front) does not.
+    expect(canGen("freeze", makeContext(["ocean", "ocean"], { targetTerrain: "ocean", averageTemperature: 1 }))).toBe(false);
+  });
+
+  it("ice CALVES at the open-water margin even in the cold, bounding the polar cap", () => {
+    expect(canGen("melt_ice", makeContext(["ocean"], { targetTerrain: "ice", averageTemperature: 2 }))).toBe(true);
+  });
 });
 
 describe("rivers, lakes, springs", () => {
@@ -367,6 +382,14 @@ describe("wear_down (erosion of heights)", () => {
   it("only targets heights", () => {
     expect(ARCHETYPES_BY_ID.wear_down.targets).toEqual(["hill", "mountain", "volcano"]);
     expect(canGen("wear_down", makeContext([], { targetTerrain: "plain" }))).toBe(false);
+  });
+
+  it("keeps the worn result inside the output terrain's band (regression: hill@4)", () => {
+    // A mountain at 6 wears to a hill: it must land in [5,8], not below.
+    expect(resultElevation("wear_down", makeContext([], { targetTerrain: "mountain", targetElevation: 6 })))
+      .toBeGreaterThanOrEqual(ELEVATION_BANDS.hill[0]);
+    expect(resultElevation("wear_down", makeContext([], { targetTerrain: "hill", targetElevation: 5 })))
+      .toBeGreaterThanOrEqual(ELEVATION_BANDS.plain[0]);
   });
 });
 

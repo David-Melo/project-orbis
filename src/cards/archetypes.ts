@@ -128,7 +128,11 @@ const PRIMARY_ARCHETYPES: CardArchetype[] = [
     age: "primordial",
     targets: ["coast", "plain", "hill"],
     canGenerate(ctx) {
-      return targetOk(this, ctx) && !ctx.touchesOcean;
+      // Uplift is the counterforce to erosion/subsidence. It must be reachable
+      // at the coast too (tectonics / sediment building the shore up): gating it
+      // to !touchesOcean was what made coastal land able only to SINK, draining
+      // the warm middle to open sea over a long run.
+      return targetOk(this, ctx);
     },
     build: (ctx, _w, rng) => {
       let kind: TerrainKind;
@@ -503,7 +507,14 @@ const PRIMARY_ARCHETYPES: CardArchetype[] = [
     age: "primordial",
     targets: ["ocean", "coast", "lake", "river", "wetland"],
     canGenerate(ctx) {
-      return targetOk(this, ctx) && ctx.averageTemperature <= 3;
+      // Cold water freezes from a FRONT — a shore or an existing ice margin —
+      // not spontaneously across the open sea, so deep polar water stays liquid
+      // and ice reads as caps and shelves rather than a solid field.
+      return (
+        targetOk(this, ctx) &&
+        ctx.averageTemperature <= 3 &&
+        (ctx.touchesLand || ctx.touchesIce)
+      );
     },
     build: (ctx, _w, rng) => ({
       title: "Freeze Over",
@@ -533,9 +544,12 @@ const PRIMARY_ARCHETYPES: CardArchetype[] = [
     age: "primordial",
     targets: ["ice"],
     canGenerate(ctx) {
+      // Thaws at the warm margin or by lava — and CALVES at the open-water edge
+      // even in the cold, so a polar ice sheet has a retreat as well as an
+      // advance and settles into a fluctuating cap instead of saturating.
       return (
         targetOk(this, ctx) &&
-        (ctx.averageTemperature >= 4 || ctx.touchesLava || ctx.touchesVolcano)
+        (ctx.averageTemperature >= 4 || ctx.touchesLava || ctx.touchesVolcano || ctx.touchesOcean)
       );
     },
     build: (ctx, _w, rng) => {
@@ -781,7 +795,9 @@ const PRIMARY_ARCHETYPES: CardArchetype[] = [
         requirements: [{ type: "targetTerrainIn", terrains: ["hill", "mountain", "volcano"] }],
         effects: [
           { type: "setTerrain", terrain: out },
-          { type: "setElevation", value: clamp(ctx.targetElevation - 2) },
+          // Step down, but keep the result inside the OUTPUT terrain's band so a
+          // worn mountain still reads as a valid hill (not a sub-band height).
+          { type: "setElevation", value: matchElevation(out, ctx.targetElevation - 2) },
           { type: "adjustFertility", amount: 1 },
         ],
         flavor: pickFlavor(rng, [

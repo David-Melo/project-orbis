@@ -29,7 +29,7 @@ export function generateWorld(seed: number, size = DEFAULT_WORLD_SIZE): WorldSta
 
   for (let y = 0; y < size; y++) {
     for (let x = 0; x < size; x++) {
-      tiles[tileIndex({ width: size }, x, y)] = makeTile(x, y, "empty", size);
+      tiles[tileIndex({ width: size }, x, y)] = makeTile(x, y, "empty", size, seed);
     }
   }
 
@@ -56,7 +56,57 @@ export function latitudeTemperature(y: number, height: number): number {
   return Math.round(1 + 6 * (1 - dist));
 }
 
-function makeTile(x: number, y: number, kind: TerrainKind, height: number): TileEntity {
+/** Continuous latitude base (unrounded), 1 at the poles .. 7 at the equator. */
+function latitudeBase(y: number, height: number): number {
+  const mid = (height - 1) / 2;
+  const dist = Math.abs(y - mid) / mid;
+  return 1 + 6 * (1 - dist);
+}
+
+/** Deterministic lattice hash in [-1, 1] from integer coords + seed. */
+function hash2(ix: number, iy: number, seed: number): number {
+  let h = (seed ^ Math.imul(ix, 374761393) ^ Math.imul(iy, 668265263)) | 0;
+  h = Math.imul(h ^ (h >>> 13), 1274126177);
+  h ^= h >>> 16;
+  return ((h >>> 0) / 4294967296) * 2 - 1;
+}
+
+/** Smooth (smoothstep-interpolated) 2D value noise in ~[-1, 1]. */
+function valueNoise(x: number, y: number, freq: number, seed: number): number {
+  const fx = x * freq;
+  const fy = y * freq;
+  const ix = Math.floor(fx);
+  const iy = Math.floor(fy);
+  const sx = ((t) => t * t * (3 - 2 * t))(fx - ix);
+  const sy = ((t) => t * t * (3 - 2 * t))(fy - iy);
+  const a = hash2(ix, iy, seed);
+  const b = hash2(ix + 1, iy, seed);
+  const c = hash2(ix, iy + 1, seed);
+  const d = hash2(ix + 1, iy + 1, seed);
+  return (a * (1 - sx) + b * sx) * (1 - sy) + (c * (1 - sx) + d * sx) * sy;
+}
+
+/**
+ * Seeded climate temperature: the latitude gradient (cold poles, warm equator)
+ * perturbed by low-frequency seeded noise, so warm tongues and cold pockets fall
+ * in different places each seed and the freezable band is no longer a flat,
+ * identical line every run. The perturbation is bounded so the extreme poles
+ * stay cold (<= 3) and the equator stays unfreezable.
+ */
+export function climateTemperature(x: number, y: number, height: number, seed: number): number {
+  const noise =
+    valueNoise(x, y, 0.13, seed) * 0.8 + valueNoise(x, y, 0.31, seed ^ 0x9e3779b9) * 0.3;
+  const t = latitudeBase(y, height) + noise * 2.2;
+  return Math.max(1, Math.min(7, Math.round(t)));
+}
+
+function makeTile(
+  x: number,
+  y: number,
+  kind: TerrainKind,
+  height: number,
+  seed: number,
+): TileEntity {
   const d = TERRAIN_DEFAULTS[kind];
   return {
     id: nextId("tile"),
@@ -64,7 +114,7 @@ function makeTile(x: number, y: number, kind: TerrainKind, height: number): Tile
     terrain: { kind },
     elevation: { value: d.elevation },
     moisture: { value: d.moisture },
-    temperature: { value: latitudeTemperature(y, height) },
+    temperature: { value: climateTemperature(x, y, height, seed) },
     fertility: { value: 0 },
     surface: defaultSurfaceFor(kind),
     connections: {},
