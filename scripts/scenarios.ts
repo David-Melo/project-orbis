@@ -37,6 +37,22 @@ function ctx(adjacent: TerrainKind[], over: Partial<TileContext> = {}): TileCont
 // Issue #1: oceans can be extended.
 expect("spread_ocean", ctx(["ocean"], { averageElevation: 1 }), true, "#1 ocean-adjacent low tile");
 
+// Spread Ocean and Sink Land must produce DIFFERENT terrain on the same tile
+// (regression: "Drown the Shore" used to duplicate Spread Ocean).
+function terrainOf(id: string, c: TileContext): string {
+  const built = ARCHETYPES_BY_ID[id].build(c, {} as never, { pick: (a: unknown[]) => a[0] } as never);
+  const set = built.effects.find((e) => e.type === "setTerrain");
+  return set && set.type === "setTerrain" ? set.terrain : "?";
+}
+{
+  const shore = ctx(["ocean"], { averageElevation: 1 });
+  const so = terrainOf("spread_ocean", shore);
+  const sl = terrainOf("sink_land", shore);
+  const ok = so === "ocean" && sl === "wetland" && so !== sl;
+  if (!ok) failures++;
+  console.log(`${ok ? "ok" : "FAIL"}: Spread Ocean (${so}) != Sink Land (${sl}) on the same shore tile`);
+}
+
 // Issue #2: ocean -> land requires a coast (no plain directly on ocean).
 expect("raise_land", ctx(["ocean"], { averageElevation: 1 }), false, "#2 raise_land on ocean tile");
 expect("form_coast", ctx(["ocean"], { averageElevation: 1 }), true, "#2 form_coast on ocean tile");

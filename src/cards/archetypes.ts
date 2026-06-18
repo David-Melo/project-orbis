@@ -163,35 +163,34 @@ export const ARCHETYPES: CardArchetype[] = [
     }),
   },
 
-  // 4. Sink Land — low ground beside water sinks: into ocean at the shore,
-  //    otherwise into marshy wetland.
+  // 4. Sink Land — low ground beside water subsides into marshy WETLAND (not
+  //    open ocean; growing the sea is Spread Ocean's job). This is the only
+  //    way to get marsh next to salt water, and it reads distinctly: reeds and
+  //    mud rather than open water.
   {
     id: "sink_land",
     name: "Sink Land",
     age: "primordial",
     canGenerate: (ctx) =>
       (ctx.touchesOcean || ctx.touchesFreshWater) && ctx.averageElevation <= 4,
-    build: (ctx, _w, rng) => {
-      const toOcean = ctx.touchesOcean && ctx.averageElevation <= 2;
-      const kind: TerrainKind = toOcean ? "ocean" : "wetland";
-      return {
-        title: toOcean ? "Drown the Shore" : "Form Marsh",
-        requirements: [
-          { type: "targetIsEmpty" },
-          { type: "touchesAnyTerrain", terrains: WATER_TOUCH },
-        ],
-        effects: [
-          { type: "setTerrain", terrain: kind },
-          { type: "setElevation", value: elevationFor(kind, ctx.averageElevation) },
-          { type: "adjustMoisture", amount: 4 },
-        ],
-        flavor: pickFlavor(rng, [
-          "The ground loses its argument with the water.",
-          "Low land softens into reed and mud.",
-          "Water seeps in and the soil gives way.",
-        ]),
-      };
-    },
+    build: (ctx, _w, rng) => ({
+      title: "Sink Land",
+      requirements: [
+        { type: "targetIsEmpty" },
+        { type: "touchesAnyTerrain", terrains: WATER_TOUCH },
+      ],
+      effects: [
+        { type: "setTerrain", terrain: "wetland" },
+        { type: "setElevation", value: elevationFor("wetland", ctx.averageElevation) },
+        { type: "adjustMoisture", amount: 4 },
+        { type: "addTrait", trait: "marsh" },
+      ],
+      flavor: pickFlavor(rng, [
+        "The ground loses its argument with the water and softens to marsh.",
+        "Low land sinks into reed, mud, and standing pools.",
+        "Water seeps in and the soil gives way to wetland.",
+      ]),
+    }),
   },
 
   // 5. Erupt Volcano — a frontier tile near land/lava erupts into a towering
