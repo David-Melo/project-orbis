@@ -1,4 +1,11 @@
-import { WATER_TERRAINS, type TerrainKind, type TileEntity } from "../engine/components";
+import {
+  FRESH_WATER_TERRAINS,
+  HIGH_GROUND_TERRAINS,
+  LAND_TERRAINS,
+  WATER_TERRAINS,
+  type TerrainKind,
+  type TileEntity,
+} from "../engine/components";
 import {
   orthogonalNeighbors,
   tilesWithinRadius,
@@ -10,8 +17,11 @@ import type { TileContext } from "../engine/card";
  * ContextAnalysisSystem.
  *
  * Summarizes the neighborhood around a tile so the card generator can decide
- * which futures are plausible. This is the heart of "the map tells the player
- * what is possible": cards are derived purely from this context object.
+ * which futures are plausible. Elevation and moisture are averaged over
+ * NON-EMPTY neighbors only: empty frontier tiles carry placeholder values and
+ * would otherwise wash out the real local terrain (this is what made the old
+ * "elevation >= 4" gate fire almost everywhere). Temperature is averaged over
+ * all neighbors because every tile carries a meaningful latitude temperature.
  */
 export function analyzeContext(world: WorldState, tile: TileEntity): TileContext {
   const adjacent = orthogonalNeighbors(world, tile);
@@ -21,10 +31,10 @@ export function analyzeContext(world: WorldState, tile: TileEntity): TileContext
   const nearbyTerrains = nearby.map((t) => t.terrain.kind);
 
   const touches = (kind: TerrainKind) => adjacentTerrains.includes(kind);
-  const touchesAny = (kinds: TerrainKind[]) =>
-    adjacentTerrains.some((k) => kinds.includes(k));
+  const touchesSet = (set: ReadonlySet<TerrainKind>) =>
+    adjacentTerrains.some((k) => set.has(k));
 
-  const landKinds: TerrainKind[] = ["plain", "hill", "mountain", "basalt", "coast"];
+  const landNeighbors = nearby.filter((t) => t.terrain.kind !== "empty" && t.terrain.kind !== "void");
 
   return {
     targetTileId: tile.id,
@@ -32,7 +42,7 @@ export function analyzeContext(world: WorldState, tile: TileEntity): TileContext
     targetY: tile.position.y,
     adjacentTerrains,
     nearbyTerrains,
-    touchesWater: touchesAny([...WATER_TERRAINS]),
+    touchesWater: touchesSet(WATER_TERRAINS),
     touchesOcean: touches("ocean"),
     touchesRiver: touches("river"),
     touchesLake: touches("lake"),
@@ -40,9 +50,12 @@ export function analyzeContext(world: WorldState, tile: TileEntity): TileContext
     touchesIce: touches("ice"),
     touchesVolcano: touches("volcano"),
     touchesMountain: touches("mountain"),
-    touchesLand: touchesAny(landKinds),
-    averageElevation: average(nearby.map((t) => t.elevation.value)),
-    averageMoisture: average(nearby.map((t) => t.moisture.value)),
+    touchesLand: touchesSet(LAND_TERRAINS),
+    touchesFreshWater: touchesSet(FRESH_WATER_TERRAINS),
+    touchesHighGround: touchesSet(HIGH_GROUND_TERRAINS),
+    landNeighborCount: landNeighbors.length,
+    averageElevation: average(landNeighbors.map((t) => t.elevation.value)),
+    averageMoisture: average(landNeighbors.map((t) => t.moisture.value)),
     averageTemperature: average(nearby.map((t) => t.temperature.value)),
   };
 }

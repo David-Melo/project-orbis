@@ -169,6 +169,30 @@ export const WATER_TERRAINS: ReadonlySet<TerrainKind> = new Set<TerrainKind>([
   "wetland",
 ]);
 
+/** Fresh water that can feed rivers and lakes (the ocean is salt, excluded). */
+export const FRESH_WATER_TERRAINS: ReadonlySet<TerrainKind> = new Set<TerrainKind>([
+  "river",
+  "lake",
+  "wetland",
+]);
+
+/** High ground that can act as a river source ("spring"). */
+export const HIGH_GROUND_TERRAINS: ReadonlySet<TerrainKind> = new Set<TerrainKind>([
+  "hill",
+  "mountain",
+  "volcano",
+]);
+
+/** Solid land the world can grow outward from. */
+export const LAND_TERRAINS: ReadonlySet<TerrainKind> = new Set<TerrainKind>([
+  "coast",
+  "plain",
+  "hill",
+  "mountain",
+  "volcano",
+  "basalt",
+]);
+
 /** Default surface flags for a freshly-set terrain kind. */
 export function defaultSurfaceFor(kind: TerrainKind): SurfaceComponent {
   switch (kind) {

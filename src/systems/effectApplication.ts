@@ -27,6 +27,9 @@ export function applyEffects(
         tile.terrain.kind = effect.terrain;
         tile.surface = defaultSurfaceFor(effect.terrain);
         break;
+      case "setElevation":
+        tile.elevation.value = clamp(effect.value);
+        break;
       case "adjustElevation":
         tile.elevation.value = clamp(tile.elevation.value + effect.amount);
         break;

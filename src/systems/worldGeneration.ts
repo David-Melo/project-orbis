@@ -13,9 +13,14 @@ export const DEFAULT_WORLD_SIZE = 32;
  * WorldGenerationSystem.
  *
  * Creates a fresh grid that is mostly empty frontier, with a single small
- * seed of land/coast/ocean near the center so the player always has a
- * frontier to grow from on day one. The terrain seed is deliberately tiny:
- * the world is meant to be authored through cards, not pre-generated.
+ * LAYERED island near the center: a mountain peak stepping down through hills,
+ * plains, a coast ring and an ocean ring. The gradient matters — it gives the
+ * card rules real elevation/terrain to read so early actions form coherent
+ * slopes and shorelines rather than arbitrary jumps.
+ *
+ * Every tile (including empty ones) is assigned a latitude-based temperature:
+ * cold near the poles (top/bottom rows), warm near the equator (middle). This
+ * is what gives ice a natural home and keeps "freeze" out of temperate land.
  */
 export function generateWorld(seed: number, size = DEFAULT_WORLD_SIZE): WorldState {
   const rng = new Rng(seed);
@@ -23,7 +28,7 @@ export function generateWorld(seed: number, size = DEFAULT_WORLD_SIZE): WorldSta
 
   for (let y = 0; y < size; y++) {
     for (let x = 0; x < size; x++) {
-      tiles[tileIndex({ width: size }, x, y)] = makeTile(x, y, "empty");
+      tiles[tileIndex({ width: size }, x, y)] = makeTile(x, y, "empty", size);
     }
   }
 
@@ -43,14 +48,21 @@ export function generateWorld(seed: number, size = DEFAULT_WORLD_SIZE): WorldSta
   return world;
 }
 
-function makeTile(x: number, y: number, kind: TerrainKind): TileEntity {
+/** Temperature 1 (poles) .. 7 (equator), by latitude. */
+export function latitudeTemperature(y: number, height: number): number {
+  const mid = (height - 1) / 2;
+  const dist = Math.abs(y - mid) / mid; // 0 at equator, 1 at the poles
+  return Math.round(1 + 6 * (1 - dist));
+}
+
+function makeTile(x: number, y: number, kind: TerrainKind, height: number): TileEntity {
   return {
     id: nextId("tile"),
     position: { x, y },
     terrain: { kind },
-    elevation: { value: kind === "ocean" ? 0 : kind === "coast" ? 2 : 3 },
-    moisture: { value: kind === "empty" ? 0 : 5 },
-    temperature: { value: 5 },
+    elevation: { value: 0 },
+    moisture: { value: 0 },
+    temperature: { value: latitudeTemperature(y, height) },
     fertility: { value: 0 },
     surface: defaultSurfaceFor(kind),
     connections: {},
@@ -60,38 +72,30 @@ function makeTile(x: number, y: number, kind: TerrainKind): TileEntity {
 }
 
 /**
- * Drop a tiny island near the center: a few plains ringed loosely by coast,
- * with ocean just beyond. This guarantees a varied set of frontier tiles
- * (land, coast, water) for the first cards.
+ * A roughly circular layered island centered on the map. Concentric bands by
+ * Euclidean distance from the center give a believable peak-to-sea gradient.
  */
-function seedPrimordialIsland(world: WorldState, rng: Rng): void {
+function seedPrimordialIsland(world: WorldState, _rng: Rng): void {
   const cx = Math.floor(world.width / 2);
   const cy = Math.floor(world.height / 2);
 
-  setTerrain(world, cx, cy, "plain", 4);
-  setTerrain(world, cx + 1, cy, "plain", 4);
-  setTerrain(world, cx, cy + 1, "plain", 3);
-  setTerrain(world, cx - 1, cy, rng.next() > 0.5 ? "hill" : "plain", 4);
-
-  const coastRing: Array<[number, number]> = [
-    [cx + 2, cy],
-    [cx - 2, cy],
-    [cx, cy + 2],
-    [cx, cy - 1],
-    [cx + 1, cy + 1],
-    [cx - 1, cy + 1],
+  const bands: Array<{ max: number; kind: TerrainKind; elevation: number; moisture: number }> = [
+    { max: 0.6, kind: "mountain", elevation: 8, moisture: 3 },
+    { max: 1.8, kind: "hill", elevation: 6, moisture: 4 },
+    { max: 2.8, kind: "plain", elevation: 4, moisture: 5 },
+    { max: 3.8, kind: "coast", elevation: 2, moisture: 8 },
+    { max: 4.8, kind: "ocean", elevation: 0, moisture: 9 },
   ];
-  for (const [x, y] of coastRing) setTerrain(world, x, y, "coast", 2);
 
-  const oceanRing: Array<[number, number]> = [
-    [cx + 3, cy],
-    [cx - 3, cy],
-    [cx, cy + 3],
-    [cx, cy - 2],
-    [cx + 2, cy + 2],
-    [cx - 2, cy + 2],
-  ];
-  for (const [x, y] of oceanRing) setTerrain(world, x, y, "ocean", 0);
+  const reach = Math.ceil(bands[bands.length - 1].max);
+  for (let dy = -reach; dy <= reach; dy++) {
+    for (let dx = -reach; dx <= reach; dx++) {
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      const band = bands.find((b) => dist < b.max);
+      if (!band) continue;
+      setTerrain(world, cx + dx, cy + dy, band.kind, band.elevation, band.moisture);
+    }
+  }
 }
 
 function setTerrain(
@@ -100,11 +104,12 @@ function setTerrain(
   y: number,
   kind: TerrainKind,
   elevation: number,
+  moisture: number,
 ): void {
   if (x < 0 || y < 0 || x >= world.width || y >= world.height) return;
   const tile = world.tiles[tileIndex(world, x, y)];
   tile.terrain.kind = kind;
   tile.elevation.value = elevation;
-  tile.moisture.value = kind === "ocean" || kind === "coast" ? 8 : 5;
+  tile.moisture.value = moisture;
   tile.surface = defaultSurfaceFor(kind);
 }

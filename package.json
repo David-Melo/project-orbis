@@ -8,7 +8,8 @@
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "typecheck": "tsc -b --noEmit",
-    "smoke": "esbuild scripts/smoke.ts --bundle --platform=node --format=esm --outfile=node_modules/.cache/orbis-smoke.mjs && node node_modules/.cache/orbis-smoke.mjs"
+    "smoke": "esbuild scripts/smoke.ts --bundle --platform=node --format=esm --outfile=node_modules/.cache/orbis-smoke.mjs && node node_modules/.cache/orbis-smoke.mjs",
+    "scenarios": "esbuild scripts/scenarios.ts --bundle --platform=node --format=esm --outfile=node_modules/.cache/orbis-scenarios.mjs && node node_modules/.cache/orbis-scenarios.mjs"
   },
   "dependencies": {
     "react": "^18.3.1",

@@ -17,6 +17,7 @@ export type Requirement =
 /** Effects mutate the target tile's components when a card resolves. */
 export type Effect =
   | { type: "setTerrain"; terrain: TerrainKind }
+  | { type: "setElevation"; value: number }
   | { type: "adjustElevation"; amount: number }
   | { type: "adjustMoisture"; amount: number }
   | { type: "adjustTemperature"; amount: number }
@@ -31,6 +32,8 @@ export function describeEffect(effect: Effect): string {
   switch (effect.type) {
     case "setTerrain":
       return `Terrain → ${effect.terrain}`;
+    case "setElevation":
+      return `Elevation → ${effect.value}`;
     case "adjustElevation":
       return `Elevation ${signed(effect.amount)}`;
     case "adjustMoisture":

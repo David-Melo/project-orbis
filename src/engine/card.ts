@@ -40,7 +40,15 @@ export type TileContext = {
   touchesVolcano: boolean;
   touchesMountain: boolean;
   touchesLand: boolean;
+  /** Adjacent to fresh water (river/lake/wetland) — a usable water source. */
+  touchesFreshWater: boolean;
+  /** Adjacent to high ground (hill/mountain/volcano) — a river "spring". */
+  touchesHighGround: boolean;
+  /** Number of non-empty orthogonal+nearby tiles informing the averages. */
+  landNeighborCount: number;
+  /** Averages computed over NON-EMPTY neighbors so the void doesn't skew them. */
   averageElevation: number;
   averageMoisture: number;
+  /** Temperature average over all neighbors (latitude is meaningful everywhere). */
   averageTemperature: number;
 };
