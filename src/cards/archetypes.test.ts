@@ -182,10 +182,12 @@ describe("sink_land (downward ladder)", () => {
     expect(canGen("sink_land", makeContext(["river"], { targetTerrain: "empty", averageElevation: 3 }))).toBe(false);
   });
 
-  it("steps plain -> coast -> (ocean by sea / wetland inland) -> lake", () => {
+  it("steps plain -> coast -> wetland -> lake (coast->ocean is Spread Ocean's job, not a dup)", () => {
     expect(resultTerrain("sink_land", makeContext(["plain"], { targetTerrain: "plain", averageElevation: 4 }))).toBe("coast");
     expect(resultTerrain("sink_land", makeContext(["plain"], { targetTerrain: "coast", averageElevation: 3 }))).toBe("wetland");
-    expect(resultTerrain("sink_land", makeContext(["ocean"], { targetTerrain: "coast", averageElevation: 1 }))).toBe("ocean");
+    // Even touching the sea, Sink Land makes marsh; the sea eroding it to ocean
+    // is Spread Ocean ("Erode Shore").
+    expect(resultTerrain("sink_land", makeContext(["ocean"], { targetTerrain: "coast", averageElevation: 1 }))).toBe("wetland");
     expect(resultTerrain("sink_land", makeContext(["plain"], { targetTerrain: "wetland", averageElevation: 3 }))).toBe("lake");
   });
 });
@@ -335,7 +337,7 @@ describe("hand composition (no weird or duplicate options)", () => {
 
   it("INVARIANT: any empty tile touching walkable land (not open ocean) can grow more land", () => {
     const landKinds: Array<Parameters<typeof makeContext>[0]> = [
-      ["plain"], ["coast"], ["hill"], ["mountain"], ["basalt"], ["wetland"],
+      ["plain"], ["coast"], ["cliff"], ["hill"], ["mountain"], ["basalt"], ["wetland"],
     ];
     const landOutputs = new Set(["plain", "coast", "cliff", "hill", "mountain", "basalt"]);
     for (const adj of landKinds) {
@@ -361,24 +363,35 @@ describe("hand composition (no weird or duplicate options)", () => {
     }
   });
 
-  it("no two generated cards produce the SAME terrain on the same frontier tile", () => {
-    // The general invariant that would have caught both Drown-vs-Spread-Ocean
-    // and Flood-Basin-vs-Spring-fed-Pool duplications.
+  it("no two generated cards produce the SAME terrain on the same tile (empty AND transforms)", () => {
+    // The general invariant that catches Drown-vs-Spread-Ocean, Flood-Basin-vs-
+    // Spring-fed-Pool, AND transform dups like Flood-Shore-vs-Erode-Shore and
+    // Sink-to-Lake-vs-Form-Lake. Covers existing-tile targets, not just empty.
     const adjacencies: Array<Parameters<typeof makeContext>[0]> = [
       ["ocean"], ["ocean", "plain"], ["coast"], ["coast", "plain"], ["plain"],
       ["plain", "plain", "plain"], ["river"], ["river", "plain"], ["wetland"],
       ["wetland", "plain"], ["mountain"], ["hill"], ["lava"], ["lava", "ocean"],
       ["volcano"], ["ice"], ["mountain", "plain"], ["coast", "plain", "plain"],
+      ["river", "river", "lake"], ["coast", "ocean"],
+    ];
+    const targets: TerrainKind[] = [
+      "empty", "plain", "coast", "cliff", "hill", "mountain", "basalt",
+      "wetland", "lake", "river", "ocean", "ice", "lava", "volcano",
     ];
     for (const adj of adjacencies) {
-      for (const temp of [7, 2]) {
-        for (const isBasin of [false, true]) {
-          const ctx = makeContext(adj, { averageTemperature: temp, isBasin, averageMoisture: 5, averageElevation: 3 });
-          const terrains = ARCHETYPES.filter((x) => x.canGenerate(ctx, {} as WorldState))
-            .map((x) => resultTerrain(x.id, ctx))
-            .filter((t): t is NonNullable<typeof t> => t !== undefined);
-          const dupes = terrains.filter((t, i) => terrains.indexOf(t) !== i);
-          expect(dupes, `duplicate terrain(s) on ${adj.join("+")} t${temp} basin=${isBasin}: ${dupes.join(",")}`).toEqual([]);
+      for (const targetTerrain of targets) {
+        for (const temp of [7, 2]) {
+          for (const isBasin of [false, true]) {
+            const ctx = makeContext(adj, {
+              targetTerrain, averageTemperature: temp, isBasin,
+              averageMoisture: 5, averageElevation: 3, targetElevation: 4,
+            });
+            const terrains = ARCHETYPES.filter((x) => x.canGenerate(ctx, {} as WorldState))
+              .map((x) => resultTerrain(x.id, ctx))
+              .filter((t): t is NonNullable<typeof t> => t !== undefined);
+            const dupes = terrains.filter((t, i) => terrains.indexOf(t) !== i);
+            expect(dupes, `dup on ${adj.join("+")} target=${targetTerrain} t${temp} basin=${isBasin}: ${dupes.join(",")}`).toEqual([]);
+          }
         }
       }
     }

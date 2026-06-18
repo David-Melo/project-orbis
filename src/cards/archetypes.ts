@@ -171,10 +171,12 @@ const PRIMARY_ARCHETYPES: CardArchetype[] = [
     id: "extend_coast",
     name: "Extend Coast",
     age: "primordial",
-    targets: ["empty", "plain"],
+    // Empty only: turning an existing near-shore plain into beach is Sink
+    // Land's plain->coast step ("Lower to Shore"), so they never duplicate.
+    targets: ["empty"],
     canGenerate(ctx) {
       return (
-        targetOk(this, ctx) &&
+        ctx.targetTerrain === "empty" &&
         ctx.adjacentTerrains.includes("coast") &&
         !ctx.touchesOcean &&
         !ctx.touchesLava &&
@@ -182,9 +184,9 @@ const PRIMARY_ARCHETYPES: CardArchetype[] = [
       );
     },
     build: (ctx, _w, rng) => ({
-      title: ctx.targetTerrain === "plain" ? "Form Beach" : "Extend Coast",
+      title: "Extend Coast",
       requirements: [
-        { type: "targetTerrainIn", terrains: ["empty", "plain"] },
+        { type: "targetTerrainIn", terrains: ["empty"] },
         { type: "touchesTerrain", terrain: "coast" },
         { type: "maxElevation", value: 6 },
       ],
@@ -333,9 +335,11 @@ const PRIMARY_ARCHETYPES: CardArchetype[] = [
           trait = "sandy";
           break;
         case "coast":
-          kind = ctx.touchesOcean ? "ocean" : "wetland";
-          title = ctx.touchesOcean ? "Flood Shore" : "Sink to Marsh";
-          trait = kind === "wetland" ? "marsh" : "tidal";
+          // Always subsides to marsh; the sea eroding a coast to open ocean is
+          // Spread Ocean's "Erode Shore", so the two never duplicate.
+          kind = "wetland";
+          title = "Sink to Marsh";
+          trait = "marsh";
           break;
         default: // wetland
           kind = "lake";
@@ -607,7 +611,9 @@ const PRIMARY_ARCHETYPES: CardArchetype[] = [
     id: "form_lake",
     name: "Form Lake",
     age: "primordial",
-    targets: ["empty", "plain", "wetland", "basalt"],
+    // Not "wetland": deepening a marsh to a lake is Sink Land's job, so the
+    // two never offer the same lake on a wetland tile.
+    targets: ["empty", "plain", "basalt"],
     canGenerate(ctx) {
       // A lake needs a fresh-water source AND a genuine low spot to collect in
       // (a basin or very low ground), and won't form if the tile is already
@@ -624,7 +630,7 @@ const PRIMARY_ARCHETYPES: CardArchetype[] = [
     build: (ctx, _w, rng) => ({
       title: "Form Lake",
       requirements: [
-        { type: "targetTerrainIn", terrains: ["empty", "plain", "wetland", "basalt"] },
+        { type: "targetTerrainIn", terrains: ["empty", "plain", "basalt"] },
         { type: "touchesAnyTerrain", terrains: ["river", "lake", "wetland", "ice"] },
         { type: "maxElevation", value: 6 },
       ],
@@ -769,8 +775,8 @@ function makeExtend(kind: TerrainKind, label: string, sources: TerrainKind[] = [
 
 const EXTEND_ARCHETYPES: CardArchetype[] = [
   // Plain grows from any walkable land — so you can push grassland inland from
-  // a beach (coast) or down from a hill, not only from another plain.
-  makeExtend("plain", "Plain", ["plain", "coast", "hill"]),
+  // a beach (coast), down from a hill, or behind a cliff, not only from a plain.
+  makeExtend("plain", "Plain", ["plain", "coast", "hill", "cliff"]),
   makeExtend("hill", "Hill"),
   makeExtend("mountain", "Mountain"),
   makeExtend("basalt", "Basalt"),
