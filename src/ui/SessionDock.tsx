@@ -19,8 +19,8 @@ export function SessionDock() {
           ▶ Start Day
         </button>
         <span className="dock-hint">
-          <kbd>Space</kbd> random tile · click any tile to act on it · <kbd>1</kbd>–
-          <kbd>3</kbd> pick · <kbd>Enter</kbd> confirm · <kbd>Esc</kbd> cancel
+          <kbd>Space</kbd> start / confirm · <kbd>1</kbd>–<kbd>3</kbd> pick · click a
+          tile to act on it · <kbd>Esc</kbd> cancel
         </span>
       </div>
     );
@@ -45,7 +45,7 @@ export function SessionDock() {
             disabled={!selectedCardId}
             onClick={() => store.confirmCard()}
           >
-            ✓ Confirm <kbd>↵</kbd>
+            ✓ Confirm <kbd>Space</kbd>
           </button>
           <button className="btn" onClick={() => store.cancelDay()}>
             Cancel <kbd>Esc</kbd>

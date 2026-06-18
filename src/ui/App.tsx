@@ -75,7 +75,9 @@ function useKeyboardShortcuts() {
           gameStore.selectCard(hand[idx].id);
           e.preventDefault();
         }
-      } else if (e.key === "Enter") {
+      } else if (e.key === " " || e.key === "Enter") {
+        // Space (or Enter) confirms — auto-picking the first card if none is
+        // selected — so the loop is Space, number, Space, Space…
         if (!selectedCardId && hand[0]) gameStore.selectCard(hand[0].id);
         gameStore.confirmCard();
         e.preventDefault();
