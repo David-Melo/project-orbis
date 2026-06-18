@@ -20,6 +20,9 @@ import { Rng, hashSeed } from "../engine/rng";
 
 export type Phase = "idle" | "choosing";
 
+/** How the map colors tiles: by terrain, or as an elevation heatmap. */
+export type ViewMode = "terrain" | "elevation";
+
 export type GameState = {
   world: WorldState;
   phase: Phase;
@@ -30,23 +33,29 @@ export type GameState = {
   message: string;
   /** Dev: when true, the random ritual may also transform existing edge tiles. */
   allowTransforms: boolean;
+  /** How the map renders tile colors. */
+  viewMode: ViewMode;
 };
 
 const SETTINGS_KEY = "project-orbis:settings:v1";
 
-function loadAllowTransforms(): boolean {
+type Settings = { allowTransforms: boolean; viewMode: ViewMode };
+
+function loadSettings(): Settings {
   try {
-    const raw = localStorage.getItem(SETTINGS_KEY);
-    if (!raw) return true; // default on
-    return JSON.parse(raw).allowTransforms !== false;
+    const raw = JSON.parse(localStorage.getItem(SETTINGS_KEY) ?? "{}");
+    return {
+      allowTransforms: raw.allowTransforms !== false,
+      viewMode: raw.viewMode === "elevation" ? "elevation" : "terrain",
+    };
   } catch {
-    return true;
+    return { allowTransforms: true, viewMode: "terrain" };
   }
 }
 
-function saveAllowTransforms(value: boolean): void {
+function saveSettings(s: Settings): void {
   try {
-    localStorage.setItem(SETTINGS_KEY, JSON.stringify({ allowTransforms: value }));
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify(s));
   } catch {
     // ignore
   }
@@ -68,11 +77,13 @@ export class GameStore {
   constructor() {
     const loaded = loadWorld();
     const world = loaded ?? generateWorld(defaultSeed());
+    const settings = loadSettings();
     this.state = {
       world,
       phase: "idle",
       hand: [],
-      allowTransforms: loadAllowTransforms(),
+      allowTransforms: settings.allowTransforms,
+      viewMode: settings.viewMode,
       message: loaded
         ? "Loaded saved world. Press Start Day to continue."
         : "New world created. Press Start Day to grow it.",
@@ -80,15 +91,25 @@ export class GameStore {
     if (!loaded) saveWorld(world);
   }
 
+  private persistSettings(): void {
+    saveSettings({ allowTransforms: this.state.allowTransforms, viewMode: this.state.viewMode });
+  }
+
   /** Dev toggle: allow the random ritual to transform existing edge tiles. */
   setAllowTransforms = (value: boolean): void => {
-    saveAllowTransforms(value);
     this.set({
       allowTransforms: value,
       message: value
         ? "Random days may now transform existing edge tiles."
         : "Random days will only grow empty frontier tiles.",
     });
+    this.persistSettings();
+  };
+
+  /** Switch the map between terrain colors and the elevation heatmap. */
+  setViewMode = (mode: ViewMode): void => {
+    this.set({ viewMode: mode });
+    this.persistSettings();
   };
 
   getState = (): GameState => this.state;

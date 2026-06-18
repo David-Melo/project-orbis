@@ -88,6 +88,15 @@ describe("GameStore — the core loop", () => {
     expect(tile.terrain.kind).toBe("plain"); // unchanged
   });
 
+  it("toggles the elevation view mode and persists it", () => {
+    const a = new GameStore();
+    expect(a.getState().viewMode).toBe("terrain");
+    a.setViewMode("elevation");
+    expect(a.getState().viewMode).toBe("elevation");
+    const b = new GameStore(); // reloads settings from localStorage
+    expect(b.getState().viewMode).toBe("elevation");
+  });
+
   it("persists across store instances (localStorage)", () => {
     const a = new GameStore();
     a.startDay();

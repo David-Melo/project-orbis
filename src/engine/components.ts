@@ -165,6 +165,24 @@ export const TERRAIN_LABEL: Record<TerrainKind, string> = {
   void: "Void",
 };
 
+/**
+ * Heatmap ramp for the elevation overlay, indexed by elevation 0..10:
+ * deep blue (low / deep water) → teal → green → yellow → orange → red → snow.
+ */
+export const ELEVATION_COLORS: string[] = [
+  "#0a2a5e", // 0
+  "#16597f", // 1
+  "#2487a0", // 2
+  "#2fae8a", // 3
+  "#6cc24a", // 4
+  "#bcd23f", // 5
+  "#ead23a", // 6
+  "#e89a2c", // 7
+  "#dc6322", // 8
+  "#c2331c", // 9
+  "#efe3d8", // 10
+];
+
 export const WATER_TERRAINS: ReadonlySet<TerrainKind> = new Set<TerrainKind>([
   "ocean",
   "coast",

@@ -1,9 +1,17 @@
 import { useGame } from "../state/useGame";
 import {
+  ELEVATION_COLORS,
   TERRAIN_COLOR,
   TERRAIN_GLYPH,
   TERRAIN_LABEL,
 } from "../engine/components";
+
+/** Tile background for the current view mode (terrain shading or heightmap). */
+function tileColor(kind: keyof typeof TERRAIN_COLOR, elevation: number, elevationMode: boolean): string {
+  if (kind === "empty" || kind === "void") return TERRAIN_COLOR[kind];
+  if (elevationMode) return ELEVATION_COLORS[Math.max(0, Math.min(10, elevation))];
+  return shadeByElevation(TERRAIN_COLOR[kind], elevation);
+}
 
 /**
  * Shade a terrain color by elevation so the grid reads as a heightmap: low
@@ -29,6 +37,7 @@ function shadeByElevation(hex: string, elevation: number): string {
 export function MapView() {
   const { state, store } = useGame();
   const { world } = state;
+  const elevationMode = state.viewMode === "elevation";
 
   return (
     <div className="map-view">
@@ -54,12 +63,7 @@ export function MapView() {
               key={tile.id}
               type="button"
               className={className}
-              style={{
-                background:
-                  tile.terrain.kind === "empty"
-                    ? TERRAIN_COLOR.empty
-                    : shadeByElevation(TERRAIN_COLOR[tile.terrain.kind], tile.elevation.value),
-              }}
+              style={{ background: tileColor(tile.terrain.kind, tile.elevation.value, elevationMode) }}
               title={`(${tile.position.x}, ${tile.position.y}) ${TERRAIN_LABEL[tile.terrain.kind]} · elev ${tile.elevation.value}`}
               onClick={() => store.handleTileClick(tile.id)}
             >

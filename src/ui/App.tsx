@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { useGame } from "../state/useGame";
 import { gameStore } from "../state/gameStore";
+import { ELEVATION_COLORS } from "../engine/components";
 import { MapView } from "./MapView";
 import { SessionDock } from "./SessionDock";
 import { TileInspector } from "./TileInspector";
@@ -27,8 +28,9 @@ export function App() {
         </aside>
 
         <div className="app__center">
+          <ViewToggle />
           <MapView />
-          <Legend />
+          {state.viewMode === "elevation" ? <ElevationLegend /> : <Legend />}
         </div>
 
         <aside className="app__right">
@@ -90,6 +92,40 @@ function useKeyboardShortcuts() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, []);
+}
+
+function ViewToggle() {
+  const { state, store } = useGame();
+  return (
+    <div className="view-toggle">
+      <button
+        className={`view-toggle__btn ${state.viewMode === "terrain" ? "is-active" : ""}`}
+        onClick={() => store.setViewMode("terrain")}
+      >
+        Terrain
+      </button>
+      <button
+        className={`view-toggle__btn ${state.viewMode === "elevation" ? "is-active" : ""}`}
+        onClick={() => store.setViewMode("elevation")}
+      >
+        Elevation
+      </button>
+    </div>
+  );
+}
+
+function ElevationLegend() {
+  return (
+    <div className="elev-legend">
+      <span className="elev-legend__label">low</span>
+      <div className="elev-legend__ramp">
+        {ELEVATION_COLORS.map((c, i) => (
+          <span key={i} className="elev-legend__cell" style={{ background: c }} title={`elev ${i}`} />
+        ))}
+      </div>
+      <span className="elev-legend__label">high</span>
+    </div>
+  );
 }
 
 function Legend() {
