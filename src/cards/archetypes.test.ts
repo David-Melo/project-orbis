@@ -106,6 +106,7 @@ describe("coverage — every archetype fires and every terrain is producible", (
     makeContext(["plain"], { targetTerrain: "wetland", averageElevation: 3 }), // sink_land wetland->lake
     makeContext(["plain"], { targetTerrain: "ocean", averageTemperature: 2 }), // freeze
     makeContext(["plain"], { targetTerrain: "ice", averageTemperature: 4 }), // melt_ice
+    makeContext(["ice"], { averageTemperature: 2 }), // extend_ice (glacier)
     makeContext([], { targetTerrain: "lava", averageTemperature: 5 }), // cool_lava in place
   ];
 
@@ -300,6 +301,13 @@ describe("ice (cold gating)", () => {
     expect(resultTerrain("freeze", makeContext(["plain"], { targetTerrain: "ocean", averageTemperature: 2 }))).toBe("ice");
     // An empty tile never freezes, even at the cold pole next to ice.
     expect(canGen("freeze", makeContext(["ice"], { targetTerrain: "empty", averageTemperature: 1 }))).toBe(false);
+  });
+
+  it("extend_ice grows a glacier onto cold empty frontier, but never into temperate land", () => {
+    expect(canGen("extend_ice", makeContext(["ice"], { averageTemperature: 2 }))).toBe(true);
+    expect(resultTerrain("extend_ice", makeContext(["ice"], { averageTemperature: 2 }))).toBe("ice");
+    expect(canGen("extend_ice", makeContext(["ice"], { averageTemperature: 5 }))).toBe(false); // too warm
+    expect(canGen("extend_ice", makeContext(["plain"], { averageTemperature: 1 }))).toBe(false); // no ice adjacent
   });
 
   it("melt_ice thaws ice at the warm margin (temp>=4) OR next to lava/volcano — so ice is two-directional", () => {

@@ -559,6 +559,44 @@ const PRIMARY_ARCHETYPES: CardArchetype[] = [
     },
   },
 
+  // 9a. Extend Ice — a glacier / ice sheet advances onto adjacent empty frontier
+  //     in the cold (avg temp <= 3). The only way to GROW ice onto new ground;
+  //     freezing existing water is Freeze's job. Gated to cold so ice can't
+  //     creep into temperate land.
+  {
+    id: "extend_ice",
+    name: "Extend Ice",
+    age: "primordial",
+    targets: ["empty"],
+    canGenerate(ctx) {
+      return (
+        ctx.targetTerrain === "empty" &&
+        ctx.adjacentTerrains.includes("ice") &&
+        !ctx.touchesLava &&
+        ctx.averageTemperature <= 3
+      );
+    },
+    build: (ctx, _w, rng) => ({
+      title: "Extend Ice",
+      requirements: [
+        { type: "targetTerrainIn", terrains: ["empty"] },
+        { type: "touchesTerrain", terrain: "ice" },
+        { type: "maxTemperature", value: 3 },
+      ],
+      effects: [
+        { type: "setTerrain", terrain: "ice" },
+        { type: "setElevation", value: matchElevation("ice", ctx.averageElevation) },
+        { type: "adjustMoisture", amount: 3 },
+        { type: "addTrait", trait: "glacier" },
+      ],
+      flavor: pickFlavor(rng, [
+        "The ice sheet creeps outward, swallowing the ground.",
+        "A glacier advances, grinding over the frontier.",
+        "Winter extends its white reach one tile further.",
+      ]),
+    }),
+  },
+
   // 9b. Form Floodplain — fertile LAND beside fresh water. This is the way
   //     OUT of a water-locked frontier: instead of only ever making more
   //     river/lake, a tile touching fresh water (with no plain to extend) can
